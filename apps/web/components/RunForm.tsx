@@ -320,13 +320,28 @@ export default function RunForm() {
         </div>
       )}
 
-      <button
-        type="submit"
-        disabled={submitting}
-        className="rounded-md bg-sky-600 px-5 py-2.5 font-semibold text-white hover:bg-sky-500 disabled:opacity-60"
-      >
-        {submitting ? "Starting…" : "Run"}
-      </button>
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="submit"
+          disabled={submitting}
+          className="rounded-md bg-sky-600 px-5 py-2.5 font-semibold text-white hover:bg-sky-500 disabled:opacity-60"
+        >
+          {submitting ? "Starting…" : form.mode === "replay" ? "Run (replay)" : "Run"}
+        </button>
+        {canReplay && (
+          <button
+            type="button"
+            disabled={submitting}
+            onClick={() => {
+              update({ mode: "replay" });
+              void submit("replay");
+            }}
+            className="rounded-md bg-amber-500/20 px-5 py-2.5 font-semibold text-amber-200 ring-1 ring-amber-400/50 hover:bg-amber-500/30 disabled:opacity-60"
+          >
+            ▶ Replay recorded run
+          </button>
+        )}
+      </div>
     </form>
   );
 }
