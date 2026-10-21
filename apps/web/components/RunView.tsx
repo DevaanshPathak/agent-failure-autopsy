@@ -2,6 +2,7 @@
 
 import BrowserPanel from "@/components/BrowserPanel";
 import BudgetMeter from "@/components/BudgetMeter";
+import LadderStepper from "@/components/LadderStepper";
 import TraceTimeline from "@/components/TraceTimeline";
 import VerdictCard from "@/components/VerdictCard";
 import { useRunStream } from "@/lib/useRunStream";
@@ -53,6 +54,8 @@ export default function RunView({ streamUrl, mode, runId, header, rawLog = false
         </div>
         <BudgetMeter budget={state.budget} />
       </div>
+
+      <LadderStepper rungs={state.rungs} rungChanges={state.rungChanges} />
 
       <div className="grid gap-4 lg:grid-cols-12">
         <div className="space-y-4 lg:col-span-7">
