@@ -21,11 +21,11 @@ test:
 	cd apps/web && npm test -- --run
 
 lint:
-	cd apps/api && uv run ruff check . && uv run ruff format --check .
+	cd apps/api && uv run ruff check . ../../scripts && uv run ruff format --check . ../../scripts
 	cd apps/web && npm run lint && npm run typecheck
 
 fmt:
-	cd apps/api && uv run ruff format . && uv run ruff check --fix .
+	cd apps/api && uv run ruff format . ../../scripts && uv run ruff check --fix . ../../scripts
 	cd apps/web && npx prettier --write .
 
 types:
@@ -36,5 +36,10 @@ sample:
 	@echo "Open http://localhost:3000/dev (no API keys needed)"
 	MODE=replay $(MAKE) dev
 
-record baseline:
-	@echo "make $@ arrives in Phase 5 (P5-A2: scripts/record_trace.py)"; exit 1
+record:
+	@[ -n "$(SITE)" ] || { echo "usage: make record SITE=<id from fixtures/sites.yaml>"; exit 1; }
+	cd apps/api && uv run python ../../scripts/record_trace.py --site $(SITE)
+
+baseline:
+	@[ -n "$(SITE)" ] || { echo "usage: make baseline SITE=<id from fixtures/sites.yaml>"; exit 1; }
+	cd apps/api && uv run python ../../scripts/record_trace.py --site $(SITE) --baseline
