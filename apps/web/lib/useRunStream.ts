@@ -5,8 +5,22 @@ import type { UiEvent } from "./types";
 
 export interface RunStream {
   state: RunViewState;
+  /** Every accepted event in order (duplicates from reconnects are dropped). */
+  events: UiEvent[];
   connected: boolean;
   error: string | null;
+}
+
+interface StreamState {
+  view: RunViewState;
+  events: UiEvent[];
+}
+
+const initialStreamState: StreamState = { view: initialRunViewState, events: [] };
+
+function reduceStream(s: StreamState, event: UiEvent): StreamState {
+  const view = reduceRun(s.view, event);
+  return view === s.view ? s : { view, events: [...s.events, event] };
 }
 
 function withAfter(url: string, after: number): string {
@@ -22,14 +36,14 @@ function withAfter(url: string, after: number): string {
  * `?after=<lastSeq>`; the reducer drops anything already seen either way.
  */
 export function useRunStream(url: string | null): RunStream {
-  const [state, dispatch] = useReducer(reduceRun, initialRunViewState);
+  const [stream, dispatch] = useReducer(reduceStream, initialStreamState);
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const progress = useRef({ lastSeq: 0, done: false });
 
   useEffect(() => {
-    progress.current = { lastSeq: state.lastSeq, done: state.done };
-  }, [state.lastSeq, state.done]);
+    progress.current = { lastSeq: stream.view.lastSeq, done: stream.view.done };
+  }, [stream.view.lastSeq, stream.view.done]);
 
   useEffect(() => {
     if (!url || progress.current.done) return;
@@ -61,5 +75,5 @@ export function useRunStream(url: string | null): RunStream {
     return () => es.close();
   }, [url]);
 
-  return { state, connected, error };
+  return { state: stream.view, events: stream.events, connected, error };
 }
