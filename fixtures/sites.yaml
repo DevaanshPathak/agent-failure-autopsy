@@ -1,0 +1,69 @@
+# Demo sites for Agent Failure Autopsy: one entry per failure class.
+# Every TODO is replaced in Phase 5 with a site tested by hand in the TinyFish Playground during Phase 0.
+#
+# Fields
+#   id              short slug; also the trace file name: fixtures/traces/<id>.jsonl
+#   url             start URL (https://...)
+#   goal            plain-English goal sent to TinyFish
+#   expected        the independent check the verifier runs on the result. type is one of:
+#                     contains        -> value: substring that must appear in the result (case-insensitive)
+#                     regex           -> value: pattern that must match the result
+#                     fields_present  -> fields: [dot.paths] that must be non-empty
+#                     min_items       -> path: dot.path to an array, min: minimum length
+#   expected_class  the failure class this site is meant to show first
+#   notes           what happens on each rung when tested by hand, and the date it was tested
+
+sites:
+  - id: TODO-needs-interaction
+    url: TODO
+    goal: TODO
+    expected:
+      type: TODO
+      value: TODO
+    expected_class: needs_interaction
+    notes: TODO
+
+  - id: TODO-popup-overlay
+    url: TODO
+    goal: TODO
+    expected:
+      type: TODO
+      value: TODO
+    expected_class: popup_overlay
+    notes: TODO
+
+  - id: TODO-bot-block
+    url: TODO
+    goal: TODO
+    expected:
+      type: TODO
+      value: TODO
+    expected_class: bot_block
+    notes: TODO
+
+  - id: TODO-misread-page
+    url: TODO
+    goal: TODO
+    expected:
+      type: TODO
+      value: TODO
+    expected_class: misread_page
+    notes: TODO
+
+  - id: TODO-auth-wall
+    url: TODO
+    goal: TODO
+    expected:
+      type: TODO
+      value: TODO
+    expected_class: auth_wall
+    notes: TODO
+
+  - id: TODO-captcha
+    url: TODO
+    goal: TODO
+    expected:
+      type: TODO
+      value: TODO
+    expected_class: captcha
+    notes: TODO
