@@ -52,7 +52,7 @@ def _sse(tf_run_id: str, purposes: list[str], *, status="COMPLETED", result=None
         {
             "type": "STREAMING_URL",
             "run_id": tf_run_id,
-            "streaming_url": f"https://{tf_run_id}.invalid/stream/0",
+            "streaming_url": f"https://{tf_run_id.replace('_', '-')}.invalid/stream/0",
             "timestamp": "2026-11-01T11:00:06Z",
         },
     ]
@@ -264,3 +264,25 @@ async def test_stealth_attempt_warns_when_tinyfish_did_not_apply_the_proxy(temp_
     assert "Warning: TinyFish reports the proxy was not applied" in labels
     assert tinyfish.bodies[0]["browser_profile"] == "stealth"
     assert run.attempts[0].config.proxy_country == "US"
+
+
+def _comparable(event: dict) -> dict:
+    """Drop what legitimately differs between a live run and the fixture (times, ids, raw)."""
+    e = {k: v for k, v in event.items() if k not in ("ts", "run_id")}
+    if e["type"] == "trace_event":
+        ev = e["event"]
+        e["event"] = {
+            k: ev[k]
+            for k in ("seq", "kind", "source", "step_no", "label", "tf_run_id", "attempt_no")
+        }
+    return e
+
+
+async def test_sample_run_matches_the_fixture_field_by_field(temp_db):
+    claude = FakeClaude({FetchExtraction: [NOT_FOUND]})
+    _, events = await _execute(_sample_tinyfish(), claude, SAMPLE_REQUEST)
+    sample = [
+        json.loads(line) for line in SAMPLE_RUN.read_text(encoding="utf-8").splitlines() if line
+    ]
+    for got, want in zip(events, sample, strict=True):
+        assert _comparable(got) == _comparable(want), want["seq"]
