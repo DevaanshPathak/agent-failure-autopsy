@@ -1,10 +1,13 @@
 "use client";
 
+import { useState } from "react";
+
 import BrowserPanel from "@/components/BrowserPanel";
 import BudgetMeter from "@/components/BudgetMeter";
 import LadderStepper from "@/components/LadderStepper";
 import TraceTimeline from "@/components/TraceTimeline";
 import VerdictCard from "@/components/VerdictCard";
+import { apiErrorMessages } from "@/lib/runRequest";
 import { useRunStream } from "@/lib/useRunStream";
 import type { RunMode } from "@/lib/types";
 
@@ -16,6 +19,8 @@ interface Props {
   header?: { url: string; goal: string } | null;
   /** Show a collapsible log of every UI event (used by /dev). */
   rawLog?: boolean;
+  /** Live run with a recorded trace: cancel it and open the replay (shown until the verdict). */
+  onSwitchToReplay?: () => Promise<void>;
 }
 
 function ModeBadge({ mode }: { mode: RunMode | null }) {
@@ -31,16 +36,37 @@ function ModeBadge({ mode }: { mode: RunMode | null }) {
   );
 }
 
-export default function RunView({ streamUrl, mode, runId, header, rawLog = false }: Props) {
+export default function RunView({
+  streamUrl,
+  mode,
+  runId,
+  header,
+  rawLog = false,
+  onSwitchToReplay,
+}: Props) {
   const { state, events, connected, error } = useRunStream(streamUrl);
+  const [switching, setSwitching] = useState(false);
+  const [switchError, setSwitchError] = useState<string | null>(null);
   const shown = header ?? state.header;
   const current = state.attempts.find((a) => a.attemptNo === state.currentAttempt) ?? null;
+
+  async function switchToReplay() {
+    if (!onSwitchToReplay) return;
+    setSwitching(true);
+    setSwitchError(null);
+    try {
+      await onSwitchToReplay();
+    } catch (err) {
+      setSwitchError(apiErrorMessages(err)[0]);
+      setSwitching(false);
+    }
+  }
 
   return (
     <div className="space-y-4" data-run-id={runId}>
       <div className="flex flex-wrap items-start justify-between gap-4 rounded-lg border border-slate-800 bg-slate-900/50 p-4">
         <div className="min-w-0 flex-1 space-y-1">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <ModeBadge mode={mode} />
             {!connected && !state.done && (
               <span className="rounded-full bg-slate-800 px-2.5 py-0.5 text-sm text-slate-300">
@@ -49,20 +75,35 @@ export default function RunView({ streamUrl, mode, runId, header, rawLog = false
             )}
             {error && <span className="text-sm text-rose-300">{error}</span>}
           </div>
-          <p className="truncate font-mono text-sm text-slate-400">{shown?.url ?? "…"}</p>
-          <p className="text-lg text-slate-100">{shown?.goal ?? ""}</p>
+          <p className="truncate font-mono text-sm text-slate-400" title={shown?.url}>
+            {shown?.url ?? "…"}
+          </p>
+          <p className="break-words text-lg text-slate-100">{shown?.goal ?? ""}</p>
         </div>
-        <BudgetMeter budget={state.budget} />
+        <div className="flex flex-col items-end gap-3">
+          <BudgetMeter budget={state.budget} />
+          {onSwitchToReplay && !state.done && (
+            <button
+              type="button"
+              onClick={() => void switchToReplay()}
+              disabled={switching}
+              className="rounded-md bg-amber-500/20 px-3 py-1.5 font-semibold text-amber-200 ring-1 ring-amber-400/50 hover:bg-amber-500/30 disabled:opacity-60"
+            >
+              {switching ? "Switching…" : "Switch to replay"}
+            </button>
+          )}
+          {switchError && <span className="text-sm text-rose-300">{switchError}</span>}
+        </div>
       </div>
 
       <LadderStepper rungs={state.rungs} rungChanges={state.rungChanges} />
 
       <div className="grid gap-4 lg:grid-cols-12">
-        <div className="space-y-4 lg:col-span-7">
+        <div className="min-w-0 space-y-4 lg:col-span-7">
           <BrowserPanel liveView={state.liveView} attempt={current} mode={mode} runId={runId} />
           {state.done && <VerdictCard verdict={state.verdict} />}
         </div>
-        <div className="lg:col-span-5">
+        <div className="min-w-0 lg:col-span-5">
           <TraceTimeline attempts={state.attempts} />
         </div>
       </div>
