@@ -1,5 +1,6 @@
 """Scripted stand-ins for the TinyFish and Claude clients (tests never touch the network)."""
 
+import asyncio
 from collections.abc import AsyncIterator
 from typing import Any
 
@@ -38,6 +39,9 @@ class FakeTinyFish:
         for event in script:
             if isinstance(event, Exception):
                 raise event
+            if isinstance(event, asyncio.Event):  # hang here until the test sets it
+                await event.wait()
+                continue
             yield event
 
     async def get_run(self, tf_run_id: str, screenshots: str = "none") -> dict[str, Any]:

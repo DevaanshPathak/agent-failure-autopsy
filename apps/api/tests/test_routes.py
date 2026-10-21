@@ -276,3 +276,32 @@ def test_committed_sites_yaml_is_valid():
         "captcha",
     }
     assert all(s.url.startswith("https://") and s.expected is not None for s in sites)
+
+
+async def test_user_cancel_stops_the_tinyfish_run_and_frees_the_live_slot(temp_db):
+    hang = asyncio.Event()
+    stuck = sse_run("tf_c", ["one", "two"], result=PRODUCTS)
+    stuck.insert(5, hang)  # after STARTED, STREAMING_URL, HEARTBEAT and two PROGRESS events
+    fake = FakeTinyFish(streams=[stuck, sse_run("tf_d", ["a"], result=PRODUCTS)])
+    app = create_app(_settings(), tinyfish=fake)
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t") as c:
+        run_id = (await c.post("/runs", json=BODY)).json()["run_id"]
+        for _ in range(500):
+            stored = await db.list_trace_events(run_id)
+            if sum(e.kind == "progress" for e in stored) == 2:
+                break
+            await asyncio.sleep(0.01)
+        cancelled = await c.post(f"/runs/{run_id}/cancel")
+        events = _events((await c.get(f"/runs/{run_id}/stream")).text)
+        run = (await c.get(f"/runs/{run_id}")).json()
+        again = await c.post(f"/runs/{run_id}/cancel")
+        next_run = await c.post("/runs", json=BODY)
+    assert cancelled.status_code == 202
+    assert fake.cancelled == ["tf_c"]
+    assert events[-1]["type"] == "verdict" and events[-1]["status"] == "cancelled"
+    labels = [e["event"]["label"] for e in events if e["type"] == "trace_event"]
+    assert "Cancelled by user" in labels
+    assert run["status"] == "cancelled"
+    assert run["attempts"][0]["credits_estimated"] == 2
+    assert again.status_code == 409
+    assert next_run.status_code == 201  # the live slot was released

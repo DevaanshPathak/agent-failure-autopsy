@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse, Response
 from sse_starlette import EventSourceResponse, ServerSentEvent
 
 from app import db
-from app.events import utcnow
+from app.events import Emitter, utcnow
 from app.models import (
     VERDICT_STATUSES,
     Run,
@@ -236,3 +236,30 @@ async def failing_step_screenshot(run_id: str, attempt_no: int, svc: ServicesDep
     except (TinyFishError, httpx.HTTPError) as e:
         raise HTTPException(status_code=404, detail="screenshot unavailable") from e
     return Response(content=content, media_type="image/jpeg", headers=SCREENSHOT_HEADERS)
+
+
+@router.post("/runs/{run_id}/cancel", status_code=202)
+async def cancel_run(run_id: str, svc: ServicesDep) -> dict[str, str]:
+    """Stop a queued or running run (used by "Switch to replay"). Idempotent while running."""
+    run = await db.get_run(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="run not found")
+    if run.status in VERDICT_STATUSES:
+        raise HTTPException(status_code=409, detail="run already finished")
+    task = svc.run_tasks.get(run_id)
+    if task is not None:
+        task.cancel()
+    else:  # no task (e.g. the API restarted mid-run): close the run record honestly
+        run.status = RunStatus.cancelled
+        run.verdict_reason = "Cancelled by user."
+        run.finished_at = utcnow()
+        await db.save_run(run)
+        await Emitter(run_id, svc.bus).verdict(
+            RunStatus.cancelled,
+            "Cancelled by user.",
+            final_result=None,
+            attempts_used=len(run.attempts),
+            credits_used=run.credits_used,
+            baseline_credits_estimate=run.baseline_credits_estimate,
+        )
+    return {"run_id": run_id, "status": "cancelling"}

@@ -77,6 +77,7 @@ class RunState:
     history_rungs: list[Rung] = field(default_factory=list)
     patches_applied: list[str] = field(default_factory=list)
     schema_entitled: bool = True
+    active: tuple[Attempt, "_Trace"] | None = None
 
 
 class _Trace:
@@ -210,6 +211,7 @@ class LadderController:
                     is_progress = raw.get("type") == "PROGRESS"
                     if is_progress:
                         progress += 1
+                        attempt.progress_count = progress
                     ev = map_sse_event(
                         raw,
                         run_id=tr.run_id,
@@ -266,6 +268,7 @@ class LadderController:
         assert self.tinyfish is not None, "live agent attempts need a TinyFish client"
         attempt = Attempt(attempt_no=cfg.attempt_no, rung=cfg.rung, config=cfg, started_at=utcnow())
         tr = _Trace(st.em, st.run.id, cfg.attempt_no)
+        st.active = (attempt, tr)
         progress, completed, cancelled = 0, False, False
         try:
             async with asyncio.timeout(cfg.max_duration_seconds + WATCHDOG_EXTRA_S):
@@ -347,6 +350,7 @@ class LadderController:
         Costs 0 TinyFish credits. Returns (attempt, trace, the Fetch response used)."""
         attempt = Attempt(attempt_no=cfg.attempt_no, rung=cfg.rung, config=cfg, started_at=utcnow())
         tr = _Trace(st.em, st.run.id, cfg.attempt_no)
+        st.active = (attempt, tr)
         fetch_raw: dict[str, Any] | None
 
         if cfg.from_fetch_cache and st.fetch_raw is not None:
@@ -480,11 +484,29 @@ class LadderController:
         )
         try:
             await self._climb(st)
+        except asyncio.CancelledError:
+            await asyncio.shield(self._on_user_cancel(st))
+            raise
         except Exception as e:
             log.exception("run %s crashed", run_id)
             await self._verdict(
                 st, RunStatus.error, f"Internal error: {type(e).__name__}: {e}", None
             )
+
+    async def _on_user_cancel(self, st: RunState) -> None:
+        """POST /runs/{id}/cancel: stop the TinyFish run in flight, keep what it cost, say so."""
+        run = st.run
+        if st.active is not None and st.active[0] not in run.attempts:
+            attempt, tr = st.active
+            if attempt.tf_run_id:
+                await self._safe_cancel(attempt.tf_run_id)
+            await tr.note(TraceKind.system, "Cancelled by user")
+            attempt.outcome = AttemptOutcome.error
+            attempt.credits_estimated = attempt.progress_count
+            attempt.finished_at = utcnow()
+            run.attempts.append(attempt)
+            run.credits_used += attempt.credits_estimated
+        await self._verdict(st, RunStatus.cancelled, "Cancelled by user.", None)
 
     def _plan_context(self, st: RunState, attempt: Attempt) -> PlanContext:
         return PlanContext(
