@@ -1,5 +1,8 @@
 "use client";
 
+import { useState } from "react";
+
+import { screenshotUrl } from "@/lib/api";
 import type { AttemptView, RunViewState } from "@/lib/runState";
 import type { RunMode } from "@/lib/types";
 
@@ -7,6 +10,14 @@ interface Props {
   liveView: RunViewState["liveView"];
   attempt: AttemptView | null;
   mode: RunMode | null;
+  runId: string;
+}
+
+/** "Step k — label" for the attempt's failing step, else the verifier summary. */
+export function failingCaption(attempt: AttemptView): string {
+  const failing = attempt.events.find((e) => e.seq === attempt.failingSeq);
+  if (!failing) return attempt.verify?.summary ?? "";
+  return `${failing.step_no ? `Step ${failing.step_no}` : "Failing step"} — ${failing.label}`;
 }
 
 /** Hostnames on the reserved `.invalid` TLD come from the sample fixture, never TinyFish. */
@@ -37,7 +48,37 @@ function Message({ title, detail, pulse }: { title: string; detail?: string; pul
   );
 }
 
-export default function BrowserPanel({ liveView, attempt, mode }: Props) {
+/** The failing step's screenshot (via our API); falls back to an overlay when there is none. */
+function FailingShot({ runId, attempt }: { runId: string; attempt: AttemptView }) {
+  const [broken, setBroken] = useState(false);
+  const caption = failingCaption(attempt);
+  if (broken) {
+    return (
+      <Frame>
+        <Message title="Live view ended" detail={caption} />
+      </Frame>
+    );
+  }
+  return (
+    <Frame>
+      <figure className="h-full w-full">
+        {/* A dynamic API image: next/image would need remotePatterns for no benefit here. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={screenshotUrl(runId, attempt.attemptNo)}
+          alt={`Browser at the failing step: ${caption}`}
+          className="h-full w-full object-contain"
+          onError={() => setBroken(true)}
+        />
+        <figcaption className="absolute inset-x-0 bottom-0 border-t border-rose-500/50 bg-slate-950/85 px-3 py-2 text-rose-100">
+          {caption}
+        </figcaption>
+      </figure>
+    </Frame>
+  );
+}
+
+export default function BrowserPanel({ liveView, attempt, mode, runId }: Props) {
   if (!attempt) {
     return (
       <Frame>
@@ -58,6 +99,11 @@ export default function BrowserPanel({ liveView, attempt, mode }: Props) {
   }
 
   const view = liveView && liveView.attemptNo === attempt.attemptNo ? liveView : null;
+
+  // After a diagnosed attempt ends, show where it failed (live and replay alike).
+  if (attempt.diagnosis && !view?.active) {
+    return <FailingShot key={`${runId}:${attempt.attemptNo}`} runId={runId} attempt={attempt} />;
+  }
 
   if (!view) {
     return (
@@ -101,17 +147,9 @@ export default function BrowserPanel({ liveView, attempt, mode }: Props) {
     );
   }
 
-  const failing = attempt.events.find((e) => e.seq === attempt.failingSeq);
   return (
     <Frame>
-      <Message
-        title="Live view ended"
-        detail={
-          failing
-            ? `Failed at ${failing.step_no ? `step ${failing.step_no}` : failing.kind}: ${failing.label}`
-            : attempt.verify?.summary
-        }
-      />
+      <Message title="Live view ended" detail={attempt.verify?.summary} />
     </Frame>
   );
 }

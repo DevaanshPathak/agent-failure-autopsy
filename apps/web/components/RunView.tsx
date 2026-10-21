@@ -59,7 +59,7 @@ export default function RunView({ streamUrl, mode, runId, header, rawLog = false
 
       <div className="grid gap-4 lg:grid-cols-12">
         <div className="space-y-4 lg:col-span-7">
-          <BrowserPanel liveView={state.liveView} attempt={current} mode={mode} />
+          <BrowserPanel liveView={state.liveView} attempt={current} mode={mode} runId={runId} />
           {state.done && <VerdictCard verdict={state.verdict} />}
         </div>
         <div className="lg:col-span-5">
