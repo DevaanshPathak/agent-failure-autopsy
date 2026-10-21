@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import DiagnosisCard from "@/components/DiagnosisCard";
 import { KIND_ICON, RUNG_LABEL, relTime } from "@/lib/format";
 import type { AttemptView } from "@/lib/runState";
 import type { TraceEvent } from "@/lib/types";
@@ -16,13 +17,33 @@ export function rowId(attemptNo: number, seq: number): string {
   return `ev-${attemptNo}-${seq}`;
 }
 
+/** Chips describing how an attempt was configured (browser, proxy, cache, patches). */
+export function attemptChips(a: AttemptView): string[] {
+  const chips: string[] = [];
+  if (a.rung !== "fetch") chips.push(a.config.browser_profile);
+  if (a.config.proxy_enabled) chips.push(`proxy ${a.config.proxy_country ?? ""}`.trim());
+  if (a.config.from_fetch_cache) chips.push("cached Fetch · 0 credits");
+  return [...chips, ...a.config.patches_applied];
+}
+
+function Chip({ text }: { text: string }) {
+  return (
+    <span
+      title={text}
+      className="max-w-[16rem] truncate rounded bg-slate-800 px-1.5 py-0.5 text-xs text-slate-300"
+    >
+      {text}
+    </span>
+  );
+}
+
 function TraceRow({ ev, attempt }: { ev: TraceEvent; attempt: AttemptView }) {
   const [open, setOpen] = useState(false);
   const failing = ev.seq === attempt.failingSeq;
   return (
     <li
       id={rowId(attempt.attemptNo, ev.seq)}
-      className={`rounded px-2 py-1.5 ${
+      className={`scroll-mt-4 rounded px-2 py-1.5 ${
         failing ? "border-l-4 border-rose-500 bg-rose-950" : "bg-slate-900/70"
       }`}
     >
@@ -59,29 +80,90 @@ function TraceRow({ ev, attempt }: { ev: TraceEvent; attempt: AttemptView }) {
 }
 
 function VerifyRow({ attempt }: { attempt: AttemptView }) {
+  const [open, setOpen] = useState(false);
   const v = attempt.verify;
   if (!v) return null;
   return (
     <li
-      className={`rounded px-3 py-2 font-medium ${
+      className={`rounded px-3 py-2 ${
         v.passed ? "bg-emerald-950/70 text-emerald-200" : "bg-rose-950/70 text-rose-200"
       }`}
     >
-      {v.passed ? "✓ " : "✕ "}
-      {v.summary}
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        className="w-full text-left font-medium"
+      >
+        {v.passed ? "✓ " : "✕ "}
+        {v.summary}
+        <span className="ml-2 text-xs font-normal opacity-70">{open ? "hide" : "details"}</span>
+      </button>
+      {open && (
+        <div className="mt-2 space-y-2 text-sm">
+          <ul className="space-y-0.5">
+            {v.checks.map((c) => (
+              <li key={c.name} className={c.passed ? "text-emerald-200" : "text-rose-200"}>
+                {c.passed ? "✓" : "✕"} <span className="font-mono">{c.name}</span>: {c.detail}
+              </li>
+            ))}
+          </ul>
+          {v.block_signals.length > 0 && (
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-wide opacity-70">
+                Block signals
+              </div>
+              <ul className="space-y-0.5">
+                {v.block_signals.map((s, i) => (
+                  <li key={i} className="text-slate-200">
+                    <span className="font-mono">{s.kind}</span> in {s.where}: “{s.evidence}”
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
     </li>
   );
 }
 
+const STATUS_ICON: Record<AttemptView["status"], string> = {
+  running: "…",
+  passed: "✓",
+  failed: "✕",
+};
+
 export default function TraceTimeline({ attempts }: Props) {
   const scroller = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
+  const pendingJump = useRef<{ attemptNo: number; seq: number } | null>(null);
+  const [overrides, setOverrides] = useState<Record<number, boolean>>({});
+
+  const latest = attempts.length ? attempts[attempts.length - 1].attemptNo : null;
+  const isOpen = (n: number) => overrides[n] ?? n === latest;
   const eventCount = attempts.reduce((n, a) => n + a.events.length + (a.verify ? 1 : 0), 0);
 
   useEffect(() => {
     const el = scroller.current;
     if (el && stick.current) el.scrollTop = el.scrollHeight;
   }, [eventCount]);
+
+  // Runs after every render: performs a requested jump once its group is expanded.
+  useEffect(() => {
+    const jump = pendingJump.current;
+    if (!jump) return;
+    pendingJump.current = null;
+    document
+      .getElementById(rowId(jump.attemptNo, jump.seq))
+      ?.scrollIntoView({ block: "center", behavior: "smooth" });
+  });
+
+  function jumpTo(attemptNo: number, seq: number) {
+    stick.current = false;
+    pendingJump.current = { attemptNo, seq };
+    setOverrides((o) => ({ ...o, [attemptNo]: true }));
+  }
 
   return (
     <div
@@ -93,21 +175,48 @@ export default function TraceTimeline({ attempts }: Props) {
       }}
     >
       {attempts.length === 0 && <p className="text-slate-500">No events yet.</p>}
-      {attempts.map((attempt) => (
-        <section key={attempt.attemptNo}>
-          <h3 className="mb-1.5 text-sm font-semibold text-slate-300">
-            Attempt {attempt.attemptNo} · {RUNG_LABEL[attempt.rung]}
-          </h3>
-          <ol className="space-y-1">
-            {attempt.events
-              .filter((ev) => ev.kind !== "heartbeat")
-              .map((ev) => (
-                <TraceRow key={ev.seq} ev={ev} attempt={attempt} />
+      {attempts.map((attempt) => {
+        const open = isOpen(attempt.attemptNo);
+        const failing = attempt.events.find((e) => e.seq === attempt.failingSeq);
+        return (
+          <section
+            key={attempt.attemptNo}
+            className="rounded-lg border border-slate-800 bg-slate-950/40 p-2"
+          >
+            <button
+              type="button"
+              onClick={() => setOverrides((o) => ({ ...o, [attempt.attemptNo]: !open }))}
+              aria-expanded={open}
+              className="mb-1.5 flex w-full flex-wrap items-center gap-2 text-left"
+            >
+              <span className="text-sm font-semibold text-slate-200">
+                {STATUS_ICON[attempt.status]} Attempt {attempt.attemptNo} ·{" "}
+                {RUNG_LABEL[attempt.rung]}
+              </span>
+              {attemptChips(attempt).map((chip) => (
+                <Chip key={chip} text={chip} />
               ))}
-            <VerifyRow attempt={attempt} />
-          </ol>
-        </section>
-      ))}
+              <span className="ml-auto text-xs text-slate-500">{open ? "collapse" : "expand"}</span>
+            </button>
+            <ol className="space-y-1">
+              {open &&
+                attempt.events
+                  .filter((ev) => ev.kind !== "heartbeat")
+                  .map((ev) => <TraceRow key={ev.seq} ev={ev} attempt={attempt} />)}
+              <VerifyRow attempt={attempt} />
+            </ol>
+            {open && attempt.diagnosis && (
+              <div className="mt-2">
+                <DiagnosisCard
+                  diagnosis={attempt.diagnosis}
+                  failingStepNo={failing?.step_no ?? null}
+                  onJumpToStep={(seq) => jumpTo(attempt.attemptNo, seq)}
+                />
+              </div>
+            )}
+          </section>
+        );
+      })}
     </div>
   );
 }
