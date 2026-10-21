@@ -12,6 +12,7 @@ from app import __version__, db
 from app.config import Settings, get_settings
 from app.events import RunEventBus
 from app.ladder.controller import LadderController
+from app.llm.claude import ClaudeClient
 from app.models import Health, RunMode
 from app.routes import dev, runs
 from app.services import Services
@@ -33,7 +34,11 @@ def build_services(settings: Settings, *, tinyfish: Any = _UNSET, claude: Any = 
             else None
         )
     if claude is _UNSET:
-        claude = None  # Phase 3 builds the Claude client here.
+        claude = (
+            ClaudeClient(settings.anthropic_api_key, settings.anthropic_model)
+            if settings.anthropic_api_key
+            else None
+        )
     bus = RunEventBus()
     return Services(
         settings=settings,
