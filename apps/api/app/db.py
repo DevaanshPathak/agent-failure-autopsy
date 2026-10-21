@@ -182,3 +182,14 @@ async def append_trace_event(ev: TraceEvent) -> None:
                 payload=ev.model_dump(mode="json"),
             )
         )
+
+
+async def list_trace_events(run_id: str, attempt_no: int | None = None) -> list[TraceEvent]:
+    """Full (untruncated) trace events, ordered by attempt then seq."""
+    query = select(trace_events.c.payload).where(trace_events.c.run_id == run_id)
+    if attempt_no is not None:
+        query = query.where(trace_events.c.attempt_no == attempt_no)
+    query = query.order_by(trace_events.c.attempt_no, trace_events.c.seq)
+    async with get_engine().connect() as conn:
+        rows = (await conn.execute(query)).all()
+    return [TraceEvent.model_validate(r.payload) for r in rows]

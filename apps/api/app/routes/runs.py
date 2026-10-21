@@ -2,11 +2,15 @@
 
 import asyncio
 import json
+import re
 from collections.abc import AsyncIterator
+from datetime import datetime
 from typing import Annotated, Any
 from uuid import uuid4
 
+import httpx
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi.responses import FileResponse, Response
 from sse_starlette import EventSourceResponse, ServerSentEvent
 
 from app import db
@@ -19,9 +23,12 @@ from app.models import (
     RunRequest,
     RunStatus,
     SiteInfo,
+    TraceEvent,
+    TraceKind,
 )
 from app.services import Services, get_services
 from app.sites import SitesError, find_site, load_sites
+from app.tinyfish.client import TinyFishError
 
 router = APIRouter(tags=["runs"])
 # How long a stream of an already-finished run waits for a verdict that is still in flight.
@@ -149,3 +156,74 @@ async def stream_run(
         sep="\n",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+# --- Failing-step screenshot ---------------------------------------------------------------------
+
+SAFE_SITE_ID = re.compile(r"^[A-Za-z0-9_-]+$")
+SCREENSHOT_HEADERS = {"Cache-Control": "max-age=3600"}
+
+
+def _parse_ts(value: str | None) -> datetime | None:
+    try:
+        return datetime.fromisoformat(value) if value else None
+    except ValueError:
+        return None
+
+
+def failing_step_id(trace: list[TraceEvent], failing_seq: int) -> str | None:
+    """Map the red trace event onto a step id from the run record (`steps[]`).
+
+    PROGRESS events and steps[] are not documented to be 1:1, so: same count -> by position;
+    otherwise the step nearest in time. Non-step events (e.g. COMPLETE) show the last step.
+    """
+    failing = next((ev for ev in trace if ev.seq == failing_seq), None)
+    snapshot = next((ev for ev in reversed(trace) if ev.kind is TraceKind.run_snapshot), None)
+    steps = [
+        s
+        for s in ((snapshot.raw.get("steps") or []) if snapshot else [])
+        if isinstance(s, dict) and s.get("id")
+    ]
+    if failing is None or not steps:
+        return None
+    if failing.kind is not TraceKind.progress or not failing.step_no:
+        return str(steps[-1]["id"])
+    progress = [ev for ev in trace if ev.kind is TraceKind.progress]
+    if len(steps) == len(progress) and failing.step_no <= len(steps):
+        return str(steps[failing.step_no - 1]["id"])
+    target = _parse_ts(failing.tf_timestamp) or failing.ts
+    timed = [(s, _parse_ts(s.get("timestamp"))) for s in steps]
+    timed = [(s, t) for s, t in timed if t is not None]
+    if not timed:
+        return str(steps[min(failing.step_no, len(steps)) - 1]["id"])
+    best = min(timed, key=lambda pair: abs((pair[1] - target).total_seconds()))
+    return str(best[0]["id"])
+
+
+@router.get("/runs/{run_id}/attempts/{attempt_no}/screenshot")
+async def failing_step_screenshot(run_id: str, attempt_no: int, svc: ServicesDep) -> Response:
+    run = await db.get_run(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="run not found")
+    attempt = next((a for a in run.attempts if a.attempt_no == attempt_no), None)
+    seq = attempt.diagnosis.failing_step_seq if attempt and attempt.diagnosis else None
+    if attempt is None or seq is None:
+        raise HTTPException(status_code=404, detail="no failing step for this attempt")
+
+    if run.mode is RunMode.replay:
+        site_id = run.request.site_id or ""
+        path = svc.settings.fixtures_dir / "traces" / site_id / f"attempt-{attempt_no}.jpg"
+        if not SAFE_SITE_ID.match(site_id) or not path.is_file():
+            raise HTTPException(status_code=404, detail="no recorded screenshot")
+        return FileResponse(path, media_type="image/jpeg", headers=SCREENSHOT_HEADERS)
+
+    if svc.tinyfish is None or not attempt.tf_run_id:
+        raise HTTPException(status_code=404, detail="no TinyFish run for this attempt")
+    step_id = failing_step_id(await db.list_trace_events(run_id, attempt_no), seq)
+    if step_id is None:
+        raise HTTPException(status_code=404, detail="no matching step in the run record")
+    try:
+        content = await svc.tinyfish.step_screenshot(attempt.tf_run_id, step_id)
+    except (TinyFishError, httpx.HTTPError) as e:
+        raise HTTPException(status_code=404, detail="screenshot unavailable") from e
+    return Response(content=content, media_type="image/jpeg", headers=SCREENSHOT_HEADERS)
