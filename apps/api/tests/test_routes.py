@@ -260,3 +260,18 @@ async def test_stream_of_a_finished_run_without_verdict_ends(temp_db, monkeypatc
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t") as c:
         resp = await c.get("/runs/orphan1/stream")
     assert [e["type"] for e in _events(resp.text)] == ["budget"]
+
+
+def test_committed_sites_yaml_is_valid():
+    from app.config import REPO_ROOT
+    from app.sites import load_sites
+
+    sites = load_sites(REPO_ROOT / "fixtures")
+    assert {s.expected_class.value for s in sites} >= {
+        "needs_interaction",
+        "bot_block",
+        "misread_page",
+        "auth_wall",
+        "captcha",
+    }
+    assert all(s.url.startswith("https://") and s.expected is not None for s in sites)

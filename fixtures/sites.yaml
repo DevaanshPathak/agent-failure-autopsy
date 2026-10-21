@@ -1,5 +1,9 @@
 # Demo sites for Agent Failure Autopsy: one entry per failure class.
-# Every TODO is replaced in Phase 5 with a site tested by hand in the TinyFish Playground during Phase 0.
+# Entries whose id starts with TODO are skipped by the API.
+#
+# Status (2026-10-21): these sites passed a plain-HTTP pre-screen only (up, redirects, whether the
+# data is in the raw HTML). None has been run through TinyFish yet. Confirm each one with two live
+# runs (`make record SITE=<id>`), and replace it with its backup if it doesn't show its class.
 #
 # Fields
 #   id              short slug; also the trace file name: fixtures/traces/<id>.jsonl
@@ -12,16 +16,23 @@
 #                     min_items       -> path: dot.path to an array, min: minimum length
 #   expected_class  the failure class this site is meant to show first
 #   notes           what happens on each rung when tested by hand, and the date it was tested
+# Optional
+#   output_schema   TinyFish output_schema subset (only if the account has the entitlement)
+#   baseline_steps  steps of one stealth + proxy run, measured with `make baseline SITE=<id>`
+#   start_rung      fetch | agent | agent_stealth (default fetch)
 
 sites:
-  - id: TODO-needs-interaction
-    url: TODO
-    goal: TODO
+  - id: ajax-films
+    url: https://www.scrapethissite.com/pages/ajax-javascript/
+    goal: Click the 2015 year link and list every Oscar-winning film shown for 2015 with its number of awards.
     expected:
-      type: TODO
-      value: TODO
+      type: contains
+      value: Spotlight
     expected_class: needs_interaction
-    notes: TODO
+    notes: >-
+      Pre-screen 2026-10-21: the raw HTML has 6 year links and 0 film rows (films load by AJAX after
+      a click), so Fetch should not see them. TinyFish untested. Confirm the 2015 list includes
+      "Spotlight" on the first live run. Backup: https://quotes.toscrape.com/search.aspx
 
   - id: TODO-popup-overlay
     url: TODO
@@ -30,40 +41,58 @@ sites:
       type: TODO
       value: TODO
     expected_class: popup_overlay
-    notes: TODO
+    notes: >-
+      No candidate yet. Consent walls are injected by JavaScript, so plain HTTP can't find them; search
+      with TinyFish (EU publishers on a consent platform, newsletter-modal shops). If none fails 2 of
+      2, popup is shown from the sample run only (/dev).
 
-  - id: TODO-bot-block
-    url: TODO
-    goal: TODO
+  - id: indeed-jobs
+    url: https://www.indeed.com/jobs?q=python
+    goal: Return the title of the first job listing on the page.
     expected:
-      type: TODO
-      value: TODO
+      type: fields_present
+      fields: [title]
     expected_class: bot_block
-    notes: TODO
+    notes: >-
+      Pre-screen 2026-10-21: HTTP 403 "Security Check - Indeed.com" (Cloudflare challenge), so Fetch
+      should report bot_blocked and the ladder should skip to stealth + proxy. TinyFish untested.
+      Commercial site whose terms forbid scraping: keep it to a handful of runs and store no data.
+      Backup: https://www.ticketmaster.com/ ("Just a Moment" interstitial).
 
-  - id: TODO-misread-page
-    url: TODO
-    goal: TODO
+  - id: books-22
+    url: https://books.toscrape.com/catalogue/a-light-in-the-attic_1000/index.html
+    goal: Return this book's availability.
     expected:
-      type: TODO
-      value: TODO
+      type: regex
+      value: '\b22\b'
     expected_class: misread_page
-    notes: TODO
+    start_rung: agent
+    notes: >-
+      Pre-screen 2026-10-21: the page shows "In stock (22 available)". The goal is deliberately
+      loose while the check needs the count, so an agent answer of "In stock" is a misread that a
+      tighter retry should fix. Starts at the agent (at rung 1 the extractor may already get it
+      right). TinyFish untested. Backup: https://www.scrapethissite.com/pages/forms/
 
-  - id: TODO-auth-wall
-    url: TODO
-    goal: TODO
+  - id: github-settings
+    url: https://github.com/settings/profile
+    goal: Return the profile display name shown on the settings page.
     expected:
-      type: TODO
-      value: TODO
+      type: fields_present
+      fields: [name]
     expected_class: auth_wall
-    notes: TODO
+    notes: >-
+      Pre-screen 2026-10-21: redirects to https://github.com/login?return_to=... with a password
+      field, so Fetch should report login_required and the run stops honestly at 0 credits.
+      TinyFish untested. Backup: https://www.linkedin.com/feed/
 
-  - id: TODO-captcha
-    url: TODO
-    goal: TODO
+  - id: recaptcha-demo
+    url: https://www.google.com/recaptcha/api2/demo
+    goal: Fill in the form, submit it and return the confirmation message shown after submitting.
     expected:
-      type: TODO
-      value: TODO
+      type: contains
+      value: Verification Success
     expected_class: captcha
-    notes: TODO
+    notes: >-
+      Pre-screen 2026-10-21: Google's reCAPTCHA demo form (a g-recaptcha widget). The agent cannot
+      solve it, so the run should stop as captcha after one agent attempt. TinyFish untested.
+      Backups: https://accounts.hcaptcha.com/demo, https://nowsecure.nl (Cloudflare Turnstile).
