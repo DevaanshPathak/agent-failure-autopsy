@@ -247,6 +247,10 @@ export default function TraceTimeline({ attempts }: Props) {
                   diagnosis={attempt.diagnosis}
                   failingStepNo={failing?.step_no ?? null}
                   onJumpToStep={(seq) => jumpTo(attempt.attemptNo, seq)}
+                  rung={attempt.rung}
+                  nextConfig={
+                    attempts.find((a) => a.attemptNo === attempt.attemptNo + 1)?.config ?? null
+                  }
                 />
               </div>
             )}

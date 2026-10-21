@@ -1,5 +1,6 @@
 import { CLASS_COLOR, CLASS_LABEL } from "@/lib/format";
-import type { Diagnosis, DiagnosisSource, EvidenceSource } from "@/lib/types";
+import { patchChips } from "@/lib/patchDiff";
+import type { AttemptConfig, Diagnosis, DiagnosisSource, EvidenceSource, Rung } from "@/lib/types";
 
 const SOURCE_LABEL: Record<DiagnosisSource, string> = {
   rules: "rules",
@@ -21,10 +22,32 @@ interface Props {
   onJumpToStep?: (seq: number) => void;
   /** Step number of the failing event, when it is a progress step. */
   failingStepNo?: number | null;
+  /** Rung the diagnosed attempt ran on (for the patch diff). */
+  rung: Rung;
+  /** Config of the attempt this patch produced, once it has started. */
+  nextConfig?: AttemptConfig | null;
 }
 
-export default function DiagnosisCard({ diagnosis: d, onJumpToStep, failingStepNo }: Props) {
+function AddedLine({ text }: { text: string }) {
+  return (
+    <div className="flex gap-2 rounded bg-emerald-950/60 px-2 py-1 font-mono text-sm text-emerald-200">
+      <span aria-hidden className="select-none text-emerald-400">
+        +
+      </span>
+      <span className="min-w-0 break-words">{text}</span>
+    </div>
+  );
+}
+
+export default function DiagnosisCard({
+  diagnosis: d,
+  onJumpToStep,
+  failingStepNo,
+  rung,
+  nextConfig,
+}: Props) {
   const { patch } = d;
+  const chips = patchChips(patch, rung, nextConfig);
   return (
     <section className="space-y-3 rounded-lg border border-slate-700 bg-slate-900/80 p-4">
       <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -64,14 +87,15 @@ export default function DiagnosisCard({ diagnosis: d, onJumpToStep, failingStepN
               key={i}
               className="border-l-2 border-slate-600 pl-3 font-mono text-sm text-slate-200"
             >
-              <span className="mr-2 font-sans text-xs uppercase text-slate-500">
+              <span className="mr-2 font-sans text-xs uppercase text-slate-400">
                 {EVIDENCE_LABEL[e.source]}
               </span>
               {e.event_seq !== null && onJumpToStep ? (
                 <button
                   type="button"
                   onClick={() => onJumpToStep(e.event_seq as number)}
-                  className="text-left hover:text-white"
+                  title="Show this step in the timeline"
+                  className="text-left underline decoration-slate-500 decoration-dotted underline-offset-4 hover:text-white"
                 >
                   “{e.quote}”
                 </button>
@@ -89,18 +113,42 @@ export default function DiagnosisCard({ diagnosis: d, onJumpToStep, failingStepN
           {patch.stop_reason}
         </div>
       ) : (
-        patch.summary.length > 0 && (
-          <div className="space-y-1">
-            <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Next attempt
-            </h4>
+        <div className="space-y-2">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+            Next attempt
+          </h4>
+          {chips.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {chips.map((chip) => (
+                <span
+                  key={chip}
+                  className="rounded bg-sky-500/15 px-2 py-0.5 text-sm font-medium text-sky-200 ring-1 ring-sky-400/40"
+                >
+                  {chip}
+                </span>
+              ))}
+            </div>
+          )}
+          {patch.goal_prefix && <AddedLine text={patch.goal_prefix} />}
+          {patch.goal_suffix && <AddedLine text={patch.goal_suffix} />}
+          {patch.output_schema && (
+            <details className="rounded border border-slate-700 px-2 py-1">
+              <summary className="cursor-pointer text-sm text-slate-300">
+                Tighter output schema
+              </summary>
+              <pre className="mt-1 max-h-48 overflow-auto text-xs text-slate-300">
+                {JSON.stringify(patch.output_schema, null, 2)}
+              </pre>
+            </details>
+          )}
+          {patch.summary.length > 0 && (
             <ul className="list-inside list-disc text-slate-200">
               {patch.summary.map((line) => (
                 <li key={line}>{line}</li>
               ))}
             </ul>
-          </div>
-        )
+          )}
+        </div>
       )}
     </section>
   );
