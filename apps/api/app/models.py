@@ -20,7 +20,7 @@ from pydantic import (
     model_validator,
 )
 
-from app.patch.planner import tinyfish_schema_errors
+from app.patch.schema import tinyfish_schema_errors
 
 
 class _Model(BaseModel):
