@@ -1,4 +1,20 @@
-import type { FailureClass, Rung, RunStatus } from "./types";
+import type { FailureClass, Rung, RunStatus, TraceKind } from "./types";
+
+export const KIND_ICON: Record<TraceKind, string> = {
+  started: "▶",
+  live_view: "◉",
+  progress: "→",
+  heartbeat: "♥",
+  complete: "■",
+  tf_api_result: "⇄",
+  fetch_result: "⇣",
+  fetch_error: "⚠",
+  extraction: "✦",
+  run_snapshot: "≡",
+  stream_error: "⚠",
+  system: "•",
+  unknown: "?",
+};
 
 export const RUNG_ORDER: Rung[] = ["fetch", "agent", "agent_stealth"];
 
