@@ -1,0 +1,1963 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "additionalProperties": false,
+  "definitions": {
+    "Attempt": {
+      "additionalProperties": false,
+      "properties": {
+        "attempt_no": {
+          "type": "integer"
+        },
+        "config": {
+          "$ref": "#/definitions/AttemptConfig"
+        },
+        "credits_estimated": {
+          "default": 0,
+          "type": "integer"
+        },
+        "diagnosis": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Diagnosis"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "finished_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "num_of_steps": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "outcome": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/AttemptOutcome"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "progress_count": {
+          "default": 0,
+          "type": "integer"
+        },
+        "result": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "rung": {
+          "$ref": "#/definitions/Rung"
+        },
+        "started_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "streaming_url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "tf_error": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "tf_run_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "tf_status": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "verify": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/VerifyResult"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "attempt_no",
+        "rung",
+        "config",
+        "started_at",
+        "finished_at",
+        "tf_run_id",
+        "streaming_url",
+        "tf_status",
+        "tf_error",
+        "result",
+        "progress_count",
+        "num_of_steps",
+        "credits_estimated",
+        "verify",
+        "diagnosis",
+        "outcome"
+      ],
+      "title": "Attempt",
+      "type": "object"
+    },
+    "AttemptConfig": {
+      "additionalProperties": false,
+      "description": "Exactly what one attempt runs with.",
+      "properties": {
+        "attempt_no": {
+          "type": "integer"
+        },
+        "browser_profile": {
+          "$ref": "#/definitions/BrowserProfile",
+          "default": "lite"
+        },
+        "credit_limit": {
+          "type": "integer"
+        },
+        "from_fetch_cache": {
+          "default": false,
+          "type": "boolean"
+        },
+        "goal": {
+          "type": "string"
+        },
+        "max_duration_seconds": {
+          "type": "integer"
+        },
+        "output_schema": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "patches_applied": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "proxy_country": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "proxy_enabled": {
+          "default": false,
+          "type": "boolean"
+        },
+        "rung": {
+          "$ref": "#/definitions/Rung"
+        },
+        "url": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "attempt_no",
+        "rung",
+        "url",
+        "goal",
+        "output_schema",
+        "browser_profile",
+        "proxy_enabled",
+        "proxy_country",
+        "max_duration_seconds",
+        "from_fetch_cache",
+        "patches_applied",
+        "credit_limit"
+      ],
+      "title": "AttemptConfig",
+      "type": "object"
+    },
+    "AttemptOutcome": {
+      "enum": [
+        "verified",
+        "rejected",
+        "cancelled_budget",
+        "error"
+      ],
+      "title": "AttemptOutcome",
+      "type": "string"
+    },
+    "AttemptStartedEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "attempt_no": {
+          "type": "integer"
+        },
+        "config": {
+          "$ref": "#/definitions/AttemptConfig"
+        },
+        "run_id": {
+          "type": "string"
+        },
+        "rung": {
+          "$ref": "#/definitions/Rung"
+        },
+        "seq": {
+          "type": "integer"
+        },
+        "ts": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "type": {
+          "const": "attempt_started",
+          "default": "attempt_started",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "seq",
+        "run_id",
+        "ts",
+        "attempt_no",
+        "rung",
+        "config"
+      ],
+      "title": "AttemptStartedEvent",
+      "type": "object"
+    },
+    "BlockSignal": {
+      "additionalProperties": false,
+      "properties": {
+        "event_seq": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/definitions/BlockSignalKind"
+        },
+        "where": {
+          "$ref": "#/definitions/SignalWhere"
+        }
+      },
+      "required": [
+        "kind",
+        "where",
+        "evidence",
+        "event_seq"
+      ],
+      "title": "BlockSignal",
+      "type": "object"
+    },
+    "BlockSignalKind": {
+      "enum": [
+        "access_denied",
+        "http_403",
+        "login_form",
+        "captcha",
+        "null_result_completed",
+        "site_blocked_error",
+        "profile_hint_auth_wall",
+        "profile_hint_bot_challenge",
+        "fetch_bot_blocked",
+        "fetch_login_required"
+      ],
+      "title": "BlockSignalKind",
+      "type": "string"
+    },
+    "BrowserProfile": {
+      "enum": [
+        "lite",
+        "stealth"
+      ],
+      "title": "BrowserProfile",
+      "type": "string"
+    },
+    "BudgetEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "attempts_used": {
+          "type": "integer"
+        },
+        "credits_used": {
+          "type": "integer"
+        },
+        "max_attempts": {
+          "type": "integer"
+        },
+        "max_credits": {
+          "type": "integer"
+        },
+        "run_id": {
+          "type": "string"
+        },
+        "seq": {
+          "type": "integer"
+        },
+        "ts": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "type": {
+          "const": "budget",
+          "default": "budget",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "seq",
+        "run_id",
+        "ts",
+        "attempts_used",
+        "max_attempts",
+        "credits_used",
+        "max_credits"
+      ],
+      "title": "BudgetEvent",
+      "type": "object"
+    },
+    "CheckName": {
+      "enum": [
+        "tinyfish_status",
+        "result_present",
+        "self_reported_failure",
+        "output_schema",
+        "expected",
+        "not_all_null",
+        "no_block_page"
+      ],
+      "title": "CheckName",
+      "type": "string"
+    },
+    "CheckResult": {
+      "additionalProperties": false,
+      "properties": {
+        "detail": {
+          "type": "string"
+        },
+        "name": {
+          "$ref": "#/definitions/CheckName"
+        },
+        "passed": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "passed",
+        "detail"
+      ],
+      "title": "CheckResult",
+      "type": "object"
+    },
+    "Diagnosis": {
+      "additionalProperties": false,
+      "properties": {
+        "attempt_no": {
+          "type": "integer"
+        },
+        "confidence": {
+          "maximum": 1,
+          "minimum": 0,
+          "type": "number"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/definitions/Evidence"
+          },
+          "maxItems": 5,
+          "minItems": 1,
+          "type": "array"
+        },
+        "explanation": {
+          "type": "string"
+        },
+        "failing_step_label": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "failing_step_seq": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "failure_class": {
+          "$ref": "#/definitions/FailureClass"
+        },
+        "patch": {
+          "$ref": "#/definitions/Patch"
+        },
+        "recoverable": {
+          "type": "boolean"
+        },
+        "source": {
+          "$ref": "#/definitions/DiagnosisSource"
+        }
+      },
+      "required": [
+        "attempt_no",
+        "failure_class",
+        "recoverable",
+        "confidence",
+        "failing_step_seq",
+        "failing_step_label",
+        "evidence",
+        "explanation",
+        "patch",
+        "source"
+      ],
+      "title": "Diagnosis",
+      "type": "object"
+    },
+    "DiagnosisEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "attempt_no": {
+          "type": "integer"
+        },
+        "diagnosis": {
+          "$ref": "#/definitions/Diagnosis"
+        },
+        "run_id": {
+          "type": "string"
+        },
+        "seq": {
+          "type": "integer"
+        },
+        "ts": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "type": {
+          "const": "diagnosis",
+          "default": "diagnosis",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "seq",
+        "run_id",
+        "ts",
+        "attempt_no",
+        "diagnosis"
+      ],
+      "title": "DiagnosisEvent",
+      "type": "object"
+    },
+    "DiagnosisSource": {
+      "enum": [
+        "rules",
+        "llm",
+        "rules_fallback"
+      ],
+      "title": "DiagnosisSource",
+      "type": "string"
+    },
+    "Evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "event_seq": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "quote": {
+          "type": "string"
+        },
+        "source": {
+          "$ref": "#/definitions/EvidenceSource"
+        }
+      },
+      "required": [
+        "source",
+        "quote",
+        "event_seq"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    },
+    "EvidenceSource": {
+      "enum": [
+        "trace",
+        "result",
+        "fetch_text",
+        "verifier",
+        "tinyfish_error"
+      ],
+      "title": "EvidenceSource",
+      "type": "string"
+    },
+    "ExpectedCheck": {
+      "additionalProperties": false,
+      "description": "The user's independent check on the result.",
+      "properties": {
+        "fields": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "min": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "type": {
+          "$ref": "#/definitions/ExpectedCheckType"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "type",
+        "value",
+        "fields",
+        "path",
+        "min"
+      ],
+      "title": "ExpectedCheck",
+      "type": "object"
+    },
+    "ExpectedCheckType": {
+      "enum": [
+        "contains",
+        "regex",
+        "fields_present",
+        "min_items"
+      ],
+      "title": "ExpectedCheckType",
+      "type": "string"
+    },
+    "FailureClass": {
+      "enum": [
+        "needs_interaction",
+        "popup_overlay",
+        "bot_block",
+        "misread_page",
+        "auth_wall",
+        "captcha"
+      ],
+      "title": "FailureClass",
+      "type": "string"
+    },
+    "FetchExtraction": {
+      "additionalProperties": false,
+      "properties": {
+        "found": {
+          "type": "boolean"
+        },
+        "interaction_hint": {
+          "type": "string"
+        },
+        "missing": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "result_json": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "found",
+        "result_json",
+        "missing",
+        "interaction_hint"
+      ],
+      "title": "FetchExtraction",
+      "type": "object"
+    },
+    "Health": {
+      "additionalProperties": false,
+      "properties": {
+        "anthropic_key": {
+          "type": "boolean"
+        },
+        "db": {
+          "enum": [
+            "ok",
+            "error"
+          ],
+          "type": "string"
+        },
+        "mode": {
+          "$ref": "#/definitions/RunMode"
+        },
+        "status": {
+          "const": "ok",
+          "default": "ok",
+          "type": "string"
+        },
+        "tinyfish_key": {
+          "type": "boolean"
+        },
+        "version": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "status",
+        "mode",
+        "tinyfish_key",
+        "anthropic_key",
+        "db",
+        "version"
+      ],
+      "title": "Health",
+      "type": "object"
+    },
+    "LiveViewEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "attempt_no": {
+          "type": "integer"
+        },
+        "run_id": {
+          "type": "string"
+        },
+        "seq": {
+          "type": "integer"
+        },
+        "streaming_url": {
+          "type": "string"
+        },
+        "ts": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "type": {
+          "const": "live_view",
+          "default": "live_view",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "seq",
+        "run_id",
+        "ts",
+        "attempt_no",
+        "streaming_url"
+      ],
+      "title": "LiveViewEvent",
+      "type": "object"
+    },
+    "LlmDiagnosis": {
+      "additionalProperties": false,
+      "properties": {
+        "confidence": {
+          "type": "number"
+        },
+        "evidence_quotes": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "explanation": {
+          "type": "string"
+        },
+        "failing_step_seq": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "failure_class": {
+          "$ref": "#/definitions/FailureClass"
+        },
+        "suggested_goal_prefix": {
+          "type": "string"
+        },
+        "suggested_goal_suffix": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "failure_class",
+        "confidence",
+        "failing_step_seq",
+        "evidence_quotes",
+        "explanation",
+        "suggested_goal_prefix",
+        "suggested_goal_suffix"
+      ],
+      "title": "LlmDiagnosis",
+      "type": "object"
+    },
+    "Patch": {
+      "additionalProperties": false,
+      "properties": {
+        "browser_profile": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/BrowserProfile"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "goal_prefix": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "goal_suffix": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "next_rung": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Rung"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "output_schema": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "proxy_enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "reextract_from_fetch": {
+          "default": false,
+          "type": "boolean"
+        },
+        "skip_rungs": {
+          "items": {
+            "$ref": "#/definitions/Rung"
+          },
+          "type": "array"
+        },
+        "stop": {
+          "default": false,
+          "type": "boolean"
+        },
+        "stop_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "summary": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "next_rung",
+        "skip_rungs",
+        "goal_prefix",
+        "goal_suffix",
+        "output_schema",
+        "browser_profile",
+        "proxy_enabled",
+        "reextract_from_fetch",
+        "stop",
+        "stop_reason",
+        "summary"
+      ],
+      "title": "Patch",
+      "type": "object"
+    },
+    "Run": {
+      "additionalProperties": false,
+      "properties": {
+        "attempts": {
+          "items": {
+            "$ref": "#/definitions/Attempt"
+          },
+          "type": "array"
+        },
+        "baseline_credits_estimate": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "created_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "credits_used": {
+          "default": 0,
+          "type": "integer"
+        },
+        "final_result": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "finished_at": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "id": {
+          "type": "string"
+        },
+        "max_attempts": {
+          "type": "integer"
+        },
+        "max_credits": {
+          "type": "integer"
+        },
+        "mode": {
+          "$ref": "#/definitions/RunMode"
+        },
+        "request": {
+          "$ref": "#/definitions/RunRequest"
+        },
+        "status": {
+          "$ref": "#/definitions/RunStatus"
+        },
+        "verdict_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "id",
+        "created_at",
+        "finished_at",
+        "mode",
+        "request",
+        "status",
+        "attempts",
+        "credits_used",
+        "max_attempts",
+        "max_credits",
+        "final_result",
+        "verdict_reason",
+        "baseline_credits_estimate"
+      ],
+      "title": "Run",
+      "type": "object"
+    },
+    "RunCreated": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "$ref": "#/definitions/RunMode"
+        },
+        "run_id": {
+          "type": "string"
+        },
+        "stream_url": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "mode",
+        "stream_url"
+      ],
+      "title": "RunCreated",
+      "type": "object"
+    },
+    "RunMode": {
+      "enum": [
+        "live",
+        "replay"
+      ],
+      "title": "RunMode",
+      "type": "string"
+    },
+    "RunRequest": {
+      "additionalProperties": false,
+      "description": "Body of POST /runs.",
+      "properties": {
+        "expected": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ExpectedCheck"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "goal": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "type": "string"
+        },
+        "max_attempts": {
+          "anyOf": [
+            {
+              "maximum": 8,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "max_credits": {
+          "anyOf": [
+            {
+              "maximum": 500,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "mode": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/RunMode"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "output_schema": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "site_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "start_rung": {
+          "$ref": "#/definitions/Rung",
+          "default": "fetch"
+        },
+        "url": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "url",
+        "goal",
+        "expected",
+        "output_schema",
+        "site_id",
+        "mode",
+        "start_rung",
+        "max_attempts",
+        "max_credits"
+      ],
+      "title": "RunRequest",
+      "type": "object"
+    },
+    "RunStatus": {
+      "enum": [
+        "queued",
+        "running",
+        "verified",
+        "unrecoverable",
+        "budget_exhausted",
+        "error",
+        "cancelled"
+      ],
+      "title": "RunStatus",
+      "type": "string"
+    },
+    "Rung": {
+      "enum": [
+        "fetch",
+        "agent",
+        "agent_stealth"
+      ],
+      "title": "Rung",
+      "type": "string"
+    },
+    "RungChangeEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "from_rung": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Rung"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "reason": {
+          "type": "string"
+        },
+        "run_id": {
+          "type": "string"
+        },
+        "seq": {
+          "type": "integer"
+        },
+        "skipped": {
+          "items": {
+            "$ref": "#/definitions/Rung"
+          },
+          "type": "array"
+        },
+        "to_rung": {
+          "$ref": "#/definitions/Rung"
+        },
+        "ts": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "type": {
+          "const": "rung_change",
+          "default": "rung_change",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "seq",
+        "run_id",
+        "ts",
+        "from_rung",
+        "to_rung",
+        "skipped",
+        "reason"
+      ],
+      "title": "RungChangeEvent",
+      "type": "object"
+    },
+    "SignalWhere": {
+      "enum": [
+        "result",
+        "progress",
+        "tf_error",
+        "fetch_error",
+        "fetch_text",
+        "profile_hint"
+      ],
+      "title": "SignalWhere",
+      "type": "string"
+    },
+    "SiteInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "baseline_steps": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "expected": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ExpectedCheck"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "expected_class": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/FailureClass"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "goal": {
+          "type": "string"
+        },
+        "has_trace": {
+          "default": false,
+          "type": "boolean"
+        },
+        "id": {
+          "type": "string"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "output_schema": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "start_rung": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/Rung"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "url": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "url",
+        "goal",
+        "expected",
+        "expected_class",
+        "notes",
+        "output_schema",
+        "baseline_steps",
+        "start_rung",
+        "has_trace"
+      ],
+      "title": "SiteInfo",
+      "type": "object"
+    },
+    "Stats": {
+      "additionalProperties": false,
+      "properties": {
+        "baseline_credits_total": {
+          "type": "integer"
+        },
+        "budget_exhausted": {
+          "type": "integer"
+        },
+        "by_class": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "propertyNames": {
+            "$ref": "#/definitions/FailureClass"
+          },
+          "type": "object"
+        },
+        "credits_saved": {
+          "type": "integer"
+        },
+        "credits_used_total": {
+          "type": "integer"
+        },
+        "diagnosed": {
+          "type": "integer"
+        },
+        "errors": {
+          "type": "integer"
+        },
+        "fixed": {
+          "type": "integer"
+        },
+        "include_replay": {
+          "type": "boolean"
+        },
+        "rows": {
+          "items": {
+            "$ref": "#/definitions/StatsRow"
+          },
+          "type": "array"
+        },
+        "runs_finished": {
+          "type": "integer"
+        },
+        "runs_total": {
+          "type": "integer"
+        },
+        "unrecoverable": {
+          "type": "integer"
+        },
+        "verified_first_try": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "include_replay",
+        "runs_total",
+        "runs_finished",
+        "diagnosed",
+        "fixed",
+        "verified_first_try",
+        "unrecoverable",
+        "budget_exhausted",
+        "errors",
+        "credits_used_total",
+        "baseline_credits_total",
+        "credits_saved",
+        "by_class",
+        "rows"
+      ],
+      "title": "Stats",
+      "type": "object"
+    },
+    "StatsRow": {
+      "additionalProperties": false,
+      "properties": {
+        "attempts": {
+          "type": "integer"
+        },
+        "baseline_credits_estimate": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "classes": {
+          "items": {
+            "$ref": "#/definitions/FailureClass"
+          },
+          "type": "array"
+        },
+        "created_at": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "credits_used": {
+          "type": "integer"
+        },
+        "mode": {
+          "$ref": "#/definitions/RunMode"
+        },
+        "run_id": {
+          "type": "string"
+        },
+        "site_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "status": {
+          "$ref": "#/definitions/RunStatus"
+        },
+        "url": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "created_at",
+        "site_id",
+        "url",
+        "mode",
+        "status",
+        "attempts",
+        "credits_used",
+        "baseline_credits_estimate",
+        "classes"
+      ],
+      "title": "StatsRow",
+      "type": "object"
+    },
+    "TraceEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "attempt_no": {
+          "type": "integer"
+        },
+        "kind": {
+          "$ref": "#/definitions/TraceKind"
+        },
+        "label": {
+          "type": "string"
+        },
+        "raw": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "run_id": {
+          "type": "string"
+        },
+        "seq": {
+          "type": "integer"
+        },
+        "source": {
+          "$ref": "#/definitions/TraceSource"
+        },
+        "step_no": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "tf_run_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "tf_timestamp": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "ts": {
+          "format": "date-time",
+          "type": "string"
+        }
+      },
+      "required": [
+        "run_id",
+        "attempt_no",
+        "seq",
+        "kind",
+        "source",
+        "ts",
+        "tf_timestamp",
+        "tf_run_id",
+        "step_no",
+        "label",
+        "raw"
+      ],
+      "title": "TraceEvent",
+      "type": "object"
+    },
+    "TraceKind": {
+      "enum": [
+        "started",
+        "live_view",
+        "progress",
+        "heartbeat",
+        "complete",
+        "tf_api_result",
+        "fetch_result",
+        "fetch_error",
+        "extraction",
+        "run_snapshot",
+        "stream_error",
+        "system",
+        "unknown"
+      ],
+      "title": "TraceKind",
+      "type": "string"
+    },
+    "TraceSource": {
+      "enum": [
+        "tinyfish_sse",
+        "tinyfish_fetch",
+        "tinyfish_runs",
+        "claude_extract",
+        "system"
+      ],
+      "title": "TraceSource",
+      "type": "string"
+    },
+    "TraceUiEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "attempt_no": {
+          "type": "integer"
+        },
+        "event": {
+          "$ref": "#/definitions/TraceEvent"
+        },
+        "run_id": {
+          "type": "string"
+        },
+        "seq": {
+          "type": "integer"
+        },
+        "ts": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "type": {
+          "const": "trace_event",
+          "default": "trace_event",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "seq",
+        "run_id",
+        "ts",
+        "attempt_no",
+        "event"
+      ],
+      "title": "TraceUiEvent",
+      "type": "object"
+    },
+    "UiEvent": {
+      "description": "Exists only so the schema export names the TypeScript union `UiEvent`.",
+      "discriminator": {
+        "mapping": {
+          "attempt_started": "#/definitions/AttemptStartedEvent",
+          "budget": "#/definitions/BudgetEvent",
+          "diagnosis": "#/definitions/DiagnosisEvent",
+          "live_view": "#/definitions/LiveViewEvent",
+          "rung_change": "#/definitions/RungChangeEvent",
+          "trace_event": "#/definitions/TraceUiEvent",
+          "verdict": "#/definitions/VerdictEvent",
+          "verify": "#/definitions/VerifyEvent"
+        },
+        "propertyName": "type"
+      },
+      "oneOf": [
+        {
+          "$ref": "#/definitions/AttemptStartedEvent"
+        },
+        {
+          "$ref": "#/definitions/TraceUiEvent"
+        },
+        {
+          "$ref": "#/definitions/LiveViewEvent"
+        },
+        {
+          "$ref": "#/definitions/VerifyEvent"
+        },
+        {
+          "$ref": "#/definitions/DiagnosisEvent"
+        },
+        {
+          "$ref": "#/definitions/RungChangeEvent"
+        },
+        {
+          "$ref": "#/definitions/BudgetEvent"
+        },
+        {
+          "$ref": "#/definitions/VerdictEvent"
+        }
+      ],
+      "title": "UiEvent"
+    },
+    "VerdictEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "attempts_used": {
+          "type": "integer"
+        },
+        "baseline_credits_estimate": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "credits_used": {
+          "type": "integer"
+        },
+        "final_result": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "reason": {
+          "type": "string"
+        },
+        "run_id": {
+          "type": "string"
+        },
+        "seq": {
+          "type": "integer"
+        },
+        "status": {
+          "$ref": "#/definitions/RunStatus"
+        },
+        "ts": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "type": {
+          "const": "verdict",
+          "default": "verdict",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "seq",
+        "run_id",
+        "ts",
+        "status",
+        "reason",
+        "final_result",
+        "attempts_used",
+        "credits_used",
+        "baseline_credits_estimate"
+      ],
+      "title": "VerdictEvent",
+      "type": "object"
+    },
+    "VerifyEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "attempt_no": {
+          "type": "integer"
+        },
+        "result": {
+          "$ref": "#/definitions/VerifyResult"
+        },
+        "run_id": {
+          "type": "string"
+        },
+        "seq": {
+          "type": "integer"
+        },
+        "ts": {
+          "format": "date-time",
+          "type": "string"
+        },
+        "type": {
+          "const": "verify",
+          "default": "verify",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "seq",
+        "run_id",
+        "ts",
+        "attempt_no",
+        "result"
+      ],
+      "title": "VerifyEvent",
+      "type": "object"
+    },
+    "VerifyResult": {
+      "additionalProperties": false,
+      "properties": {
+        "attempt_no": {
+          "type": "integer"
+        },
+        "block_signals": {
+          "items": {
+            "$ref": "#/definitions/BlockSignal"
+          },
+          "type": "array"
+        },
+        "checks": {
+          "items": {
+            "$ref": "#/definitions/CheckResult"
+          },
+          "type": "array"
+        },
+        "passed": {
+          "type": "boolean"
+        },
+        "summary": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "attempt_no",
+        "passed",
+        "checks",
+        "block_signals",
+        "summary"
+      ],
+      "title": "VerifyResult",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "Attempt": {
+      "$ref": "#/definitions/Attempt"
+    },
+    "AttemptConfig": {
+      "$ref": "#/definitions/AttemptConfig"
+    },
+    "AttemptOutcome": {
+      "$ref": "#/definitions/AttemptOutcome"
+    },
+    "AttemptStartedEvent": {
+      "$ref": "#/definitions/AttemptStartedEvent"
+    },
+    "BlockSignal": {
+      "$ref": "#/definitions/BlockSignal"
+    },
+    "BlockSignalKind": {
+      "$ref": "#/definitions/BlockSignalKind"
+    },
+    "BrowserProfile": {
+      "$ref": "#/definitions/BrowserProfile"
+    },
+    "BudgetEvent": {
+      "$ref": "#/definitions/BudgetEvent"
+    },
+    "CheckName": {
+      "$ref": "#/definitions/CheckName"
+    },
+    "CheckResult": {
+      "$ref": "#/definitions/CheckResult"
+    },
+    "Diagnosis": {
+      "$ref": "#/definitions/Diagnosis"
+    },
+    "DiagnosisEvent": {
+      "$ref": "#/definitions/DiagnosisEvent"
+    },
+    "DiagnosisSource": {
+      "$ref": "#/definitions/DiagnosisSource"
+    },
+    "Evidence": {
+      "$ref": "#/definitions/Evidence"
+    },
+    "EvidenceSource": {
+      "$ref": "#/definitions/EvidenceSource"
+    },
+    "ExpectedCheck": {
+      "$ref": "#/definitions/ExpectedCheck"
+    },
+    "ExpectedCheckType": {
+      "$ref": "#/definitions/ExpectedCheckType"
+    },
+    "FailureClass": {
+      "$ref": "#/definitions/FailureClass"
+    },
+    "FetchExtraction": {
+      "$ref": "#/definitions/FetchExtraction"
+    },
+    "Health": {
+      "$ref": "#/definitions/Health"
+    },
+    "LiveViewEvent": {
+      "$ref": "#/definitions/LiveViewEvent"
+    },
+    "LlmDiagnosis": {
+      "$ref": "#/definitions/LlmDiagnosis"
+    },
+    "Patch": {
+      "$ref": "#/definitions/Patch"
+    },
+    "Run": {
+      "$ref": "#/definitions/Run"
+    },
+    "RunCreated": {
+      "$ref": "#/definitions/RunCreated"
+    },
+    "RunMode": {
+      "$ref": "#/definitions/RunMode"
+    },
+    "RunRequest": {
+      "$ref": "#/definitions/RunRequest"
+    },
+    "RunStatus": {
+      "$ref": "#/definitions/RunStatus"
+    },
+    "Rung": {
+      "$ref": "#/definitions/Rung"
+    },
+    "RungChangeEvent": {
+      "$ref": "#/definitions/RungChangeEvent"
+    },
+    "SignalWhere": {
+      "$ref": "#/definitions/SignalWhere"
+    },
+    "SiteInfo": {
+      "$ref": "#/definitions/SiteInfo"
+    },
+    "Stats": {
+      "$ref": "#/definitions/Stats"
+    },
+    "StatsRow": {
+      "$ref": "#/definitions/StatsRow"
+    },
+    "TraceEvent": {
+      "$ref": "#/definitions/TraceEvent"
+    },
+    "TraceKind": {
+      "$ref": "#/definitions/TraceKind"
+    },
+    "TraceSource": {
+      "$ref": "#/definitions/TraceSource"
+    },
+    "TraceUiEvent": {
+      "$ref": "#/definitions/TraceUiEvent"
+    },
+    "UiEvent": {
+      "$ref": "#/definitions/UiEvent"
+    },
+    "VerdictEvent": {
+      "$ref": "#/definitions/VerdictEvent"
+    },
+    "VerifyEvent": {
+      "$ref": "#/definitions/VerifyEvent"
+    },
+    "VerifyResult": {
+      "$ref": "#/definitions/VerifyResult"
+    }
+  },
+  "title": "Contracts",
+  "type": "object"
+}

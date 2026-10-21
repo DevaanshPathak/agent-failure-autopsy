@@ -24,7 +24,9 @@ from app.patch.planner import tinyfish_schema_errors
 
 
 class _Model(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    # Defaulted fields are always present in responses, so the exported (serialization) schema
+    # marks them required; the generated TypeScript then has no needless optionals.
+    model_config = ConfigDict(extra="forbid", json_schema_serialization_defaults_required=True)
 
 
 # --- Enums -------------------------------------------------------------------------------------
