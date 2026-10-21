@@ -65,6 +65,13 @@ describe("reduceRun over the sample run", () => {
     expect(reduceAll([...events, ...events])).toEqual(state);
   });
 
+  it("keeps the state for an unknown event type instead of crashing", () => {
+    const unknown = { type: "something_new", seq: 999, run_id: "r", ts: "2026-11-01T11:00:00Z" };
+    const next = reduceRun(state, unknown as unknown as UiEvent);
+    expect(next.attempts).toBe(state.attempts);
+    expect(next.lastSeq).toBe(999);
+  });
+
   it("does not mutate the initial state", () => {
     expect(initialRunViewState.attempts).toHaveLength(0);
     expect(initialRunViewState.rungs.agent.attempts).toHaveLength(0);

@@ -216,5 +216,9 @@ export function reduceRun(s: RunViewState, ev: UiEvent): RunViewState {
         liveView: deactivateLiveView(base.liveView),
       };
     }
+
+    default:
+      // An event type this build doesn't know (e.g. a newer API): keep the state, never crash.
+      return base;
   }
 }

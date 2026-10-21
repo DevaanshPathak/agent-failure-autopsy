@@ -61,6 +61,10 @@ export function useRunStream(url: string | null): RunStream {
         setError("Received an unreadable event from the API");
         return;
       }
+      if (typeof event?.seq !== "number" || typeof event?.type !== "string") {
+        setError("Received a malformed event from the API");
+        return;
+      }
       dispatch(event);
       if (event.type === "verdict") {
         es.close();
@@ -70,6 +74,7 @@ export function useRunStream(url: string | null): RunStream {
     es.onerror = () => {
       setConnected(false);
       if (es.readyState === EventSource.CLOSED) setError("The event stream closed");
+      else if (progress.current.lastSeq === 0) setError("Can't reach the API yet — retrying…");
     };
 
     return () => es.close();

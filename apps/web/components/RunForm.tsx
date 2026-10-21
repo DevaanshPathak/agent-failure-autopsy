@@ -61,8 +61,8 @@ export default function RunForm() {
     getSites()
       .then((list) => {
         if (cancelled) return;
-        setSites(list);
-        const remembered = list.find((s) => s.id === readLastSite());
+        setSites(Array.isArray(list) ? list : []);
+        const remembered = (Array.isArray(list) ? list : []).find((s) => s.id === readLastSite());
         if (remembered) setForm((f) => (f.siteId || f.url ? f : siteToForm(remembered, f)));
       })
       .catch((err: unknown) => {

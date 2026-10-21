@@ -53,7 +53,7 @@ export default function StatsTiles({ stats }: { stats: Stats | null }) {
   const baseline = stats?.baseline_credits_total ?? 0;
   const max = Math.max(ours, baseline, 1);
   const classes = stats
-    ? (Object.entries(stats.by_class) as [FailureClass, number][]).filter(
+    ? (Object.entries(stats.by_class ?? {}) as [FailureClass, number][]).filter(
         ([cls, n]) => n > 0 && cls in CLASS_LABEL,
       )
     : [];
