@@ -312,7 +312,7 @@ export default function RunForm() {
           <label
             key={mode}
             className={`flex items-center gap-2 ${
-              mode === "replay" && !canReplay ? "text-slate-500" : "text-slate-200"
+              mode === "replay" && !canReplay ? "text-slate-400" : "text-slate-200"
             }`}
           >
             <input

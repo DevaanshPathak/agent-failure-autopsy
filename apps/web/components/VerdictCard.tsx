@@ -12,7 +12,7 @@ const CARD_STYLE: Partial<Record<RunStatus, string>> = {
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="text-xs uppercase tracking-wide text-slate-400">{label}</div>
+      <div className="text-sm uppercase tracking-wide text-slate-300">{label}</div>
       <div className="text-lg font-semibold text-slate-100">{value}</div>
     </div>
   );
@@ -39,7 +39,7 @@ export default function VerdictCard({ verdict }: { verdict: VerdictEvent | null 
         {saved !== null && saved > 0 && <Stat label="Saved" value={fmtCredits(saved)} />}
       </div>
       {verdict.final_result && (
-        <pre className="max-h-60 overflow-auto rounded bg-slate-950 p-3 text-xs text-slate-300">
+        <pre className="max-h-60 overflow-auto rounded bg-slate-950 p-3 text-sm text-slate-200">
           {JSON.stringify(verdict.final_result, null, 2)}
         </pre>
       )}

@@ -47,6 +47,13 @@ html {
   color-scheme: dark;
 }
 
+/* Projectors at 1600 px and wider get an 18 px base (every rem-based size scales with it). */
+@media (min-width: 1600px) {
+  html {
+    font-size: 18px;
+  }
+}
+
 body {
   background: var(--color-slate-950);
   color: var(--color-slate-100);

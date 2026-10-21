@@ -30,7 +30,7 @@ function Chip({ text }: { text: string }) {
   return (
     <span
       title={text}
-      className="max-w-[16rem] truncate rounded bg-slate-800 px-1.5 py-0.5 text-xs text-slate-300"
+      className="max-w-[18rem] truncate rounded bg-slate-800 px-1.5 py-0.5 text-sm text-slate-200"
     >
       {text}
     </span>
@@ -48,22 +48,24 @@ function TraceRow({ ev, attempt }: { ev: TraceEvent; attempt: AttemptView }) {
       }`}
     >
       <div className="flex items-baseline gap-3">
-        <span className="w-4 shrink-0 text-center text-slate-500" aria-hidden>
+        <span className="w-4 shrink-0 text-center text-slate-400" aria-hidden>
           {KIND_ICON[ev.kind]}
         </span>
-        <span className="w-16 shrink-0 font-mono text-xs text-slate-500">
+        <span className="w-[4.5rem] shrink-0 font-mono text-sm text-slate-400">
           {relTime(ev.ts, attempt.startedAt)}
         </span>
-        <span className="w-16 shrink-0 text-sm text-slate-400">
-          {ev.step_no ? `Step ${ev.step_no}` : ""}
+        <span className="min-w-0 flex-1 break-words text-slate-100">
+          {ev.step_no ? (
+            <span className="mr-2 text-sm font-medium text-slate-400">Step {ev.step_no}</span>
+          ) : null}
+          {ev.label}
         </span>
-        <span className="flex-1 text-slate-100">{ev.label}</span>
         {failing && (
           <span className="shrink-0 text-sm font-medium text-rose-300">✕ failed here</span>
         )}
         <button
           type="button"
-          className="shrink-0 text-xs text-slate-500 hover:text-slate-300"
+          className="shrink-0 text-sm text-slate-400 hover:text-slate-200"
           onClick={() => setOpen((o) => !o)}
           aria-expanded={open}
         >
@@ -97,7 +99,7 @@ function VerifyRow({ attempt }: { attempt: AttemptView }) {
       >
         {v.passed ? "✓ " : "✕ "}
         {v.summary}
-        <span className="ml-2 text-xs font-normal opacity-70">{open ? "hide" : "details"}</span>
+        <span className="ml-2 text-sm font-normal opacity-80">{open ? "hide" : "details"}</span>
       </button>
       {open && (
         <div className="mt-2 space-y-2 text-sm">
@@ -110,7 +112,7 @@ function VerifyRow({ attempt }: { attempt: AttemptView }) {
           </ul>
           {v.block_signals.length > 0 && (
             <div>
-              <div className="text-xs font-semibold uppercase tracking-wide opacity-70">
+              <div className="text-sm font-semibold uppercase tracking-wide opacity-80">
                 Block signals
               </div>
               <ul className="space-y-0.5">
@@ -209,7 +211,7 @@ export default function TraceTimeline({ attempts }: Props) {
         stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < STICK_PX;
       }}
     >
-      {attempts.length === 0 && <p className="text-slate-500">No events yet.</p>}
+      {attempts.length === 0 && <p className="text-slate-400">No events yet.</p>}
       {attempts.map((attempt) => {
         const open = isOpen(attempt.attemptNo);
         const failing = attempt.events.find((e) => e.seq === attempt.failingSeq);
@@ -231,7 +233,7 @@ export default function TraceTimeline({ attempts }: Props) {
               {attemptChips(attempt).map((chip) => (
                 <Chip key={chip} text={chip} />
               ))}
-              <span className="ml-auto text-xs text-slate-500">{open ? "collapse" : "expand"}</span>
+              <span className="ml-auto text-sm text-slate-400">{open ? "collapse" : "expand"}</span>
             </button>
             <ol className="space-y-1">
               {open &&

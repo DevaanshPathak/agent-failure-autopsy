@@ -81,13 +81,13 @@ export default function DiagnosisCard({
 
       {d.evidence.length > 0 && (
         <div className="space-y-1.5">
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Evidence</h4>
+          <h4 className="text-sm font-semibold uppercase tracking-wide text-slate-400">Evidence</h4>
           {d.evidence.map((e, i) => (
             <blockquote
               key={i}
-              className="border-l-2 border-slate-600 pl-3 font-mono text-sm text-slate-200"
+              className="break-words border-l-2 border-slate-600 pl-3 font-mono text-sm text-slate-200"
             >
-              <span className="mr-2 font-sans text-xs uppercase text-slate-400">
+              <span className="mr-2 font-sans text-sm uppercase text-slate-400">
                 {EVIDENCE_LABEL[e.source]}
               </span>
               {e.event_seq !== null && onJumpToStep ? (
@@ -114,7 +114,7 @@ export default function DiagnosisCard({
         </div>
       ) : (
         <div className="space-y-2">
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+          <h4 className="text-sm font-semibold uppercase tracking-wide text-slate-400">
             Next attempt
           </h4>
           {chips.length > 0 && (

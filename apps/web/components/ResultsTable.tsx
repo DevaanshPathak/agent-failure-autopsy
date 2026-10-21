@@ -48,7 +48,7 @@ export default function ResultsTable({ rows }: { rows: StatsRow[] }) {
               </td>
               <td className="max-w-[20rem] px-3 py-2">
                 <div className="font-medium text-slate-100">{r.site_id ?? "custom"}</div>
-                <div className="truncate font-mono text-xs text-slate-400" title={r.url}>
+                <div className="truncate font-mono text-sm text-slate-400" title={r.url}>
                   {r.url}
                 </div>
               </td>
@@ -58,7 +58,7 @@ export default function ResultsTable({ rows }: { rows: StatsRow[] }) {
                   {r.classes.map((c, i) => (
                     <span
                       key={`${c}-${i}`}
-                      className={`rounded px-1.5 py-0.5 text-xs ${CLASS_COLOR[c]}`}
+                      className={`rounded px-1.5 py-0.5 text-sm ${CLASS_COLOR[c]}`}
                     >
                       {CLASS_LABEL[c]}
                     </span>

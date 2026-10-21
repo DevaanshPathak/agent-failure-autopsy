@@ -10,7 +10,7 @@ function Bar({ label, used, max }: { label: string; used: number; max: number })
   const ratio = max > 0 ? used / max : 1;
   return (
     <div className="w-44">
-      <div className="flex justify-between text-xs text-slate-400">
+      <div className="flex justify-between text-sm text-slate-300">
         <span>{label}</span>
         <span className="font-mono text-slate-200">
           {used}/{max}

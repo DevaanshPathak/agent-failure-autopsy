@@ -30,7 +30,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col">
         <header className="border-b border-slate-800 bg-slate-950/80">
-          <div className="mx-auto flex w-full max-w-[1600px] items-center justify-between gap-6 px-6 py-4">
+          <div className="mx-auto flex w-full max-w-[1600px] flex-wrap items-center justify-between gap-x-6 gap-y-2 px-6 py-4">
             <div>
               <Link href="/" className="text-lg font-semibold tracking-tight text-slate-50">
                 Agent Failure Autopsy
@@ -52,7 +52,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             </nav>
           </div>
         </header>
-        <div className="mx-auto w-full max-w-[1600px] flex-1 px-6 py-6">{children}</div>
+        <div className="mx-auto w-full min-w-0 max-w-[1600px] flex-1 px-6 py-6">{children}</div>
       </body>
     </html>
   );
