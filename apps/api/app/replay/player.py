@@ -7,6 +7,7 @@ a replay shows exactly what was recorded. The UI labels it REPLAY from `Run.mode
 import asyncio
 import json
 import logging
+import re
 from pathlib import Path
 
 from app import db
@@ -33,8 +34,12 @@ log = logging.getLogger(__name__)
 MAX_GAP_S = 3.0
 
 
+SAFE_SITE_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+
+
 def trace_path(fixtures_dir: Path, site_id: str | None) -> Path | None:
-    if not site_id:
+    """The recorded trace for a site, or None. Site ids are slugs, never paths."""
+    if not site_id or not SAFE_SITE_ID.match(site_id):
         return None
     path = fixtures_dir / "traces" / f"{site_id}.jsonl"
     return path if path.is_file() else None

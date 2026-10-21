@@ -83,3 +83,12 @@ async def test_a_trace_without_a_verdict_ends_with_an_error_verdict(temp_db, fix
     _, events, run = await _replay(fixtures)
     assert events[-1]["type"] == "verdict" and events[-1]["status"] == "error"
     assert run["status"] == "error"
+
+
+def test_site_ids_are_never_paths(fixtures):
+    from app.replay.player import trace_path
+
+    (fixtures / "outside.jsonl").write_text("{}\n", encoding="utf-8")
+    assert trace_path(fixtures / "traces" / "x", "../../outside") is None
+    assert trace_path(fixtures, "sample") == fixtures / "traces" / "sample.jsonl"
+    assert trace_path(fixtures, None) is None
