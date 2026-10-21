@@ -18,11 +18,18 @@ const SUBTITLE: Record<Rung, string> = {
 
 const STATE_STYLE: Record<RungState, string> = {
   pending: "border-slate-700 bg-slate-900/40 text-slate-400",
-  active: "border-sky-400 bg-sky-950/60 text-sky-100 animate-pulse",
+  // The flash plays once (1.5 s) each time a rung becomes active.
+  active: "border-sky-400 bg-sky-950/60 text-sky-100 animate-rung-flash",
   failed: "border-rose-500 bg-rose-950/60 text-rose-100",
   passed: "border-emerald-500 bg-emerald-950/60 text-emerald-100",
-  skipped: "border-dashed border-slate-700 bg-slate-900/20 text-slate-500",
+  skipped: "border-dashed border-slate-700 bg-slate-900/20 text-slate-400",
 };
+
+/** Why a rung was skipped: the reason of the rung change that skipped it. */
+export function skipReason(rung: Rung, rungChanges: RungChangeEvent[]): string | null {
+  const change = rungChanges.find((c) => c.skipped.includes(rung));
+  return change ? change.reason : null;
+}
 
 const STATE_WORD: Record<RungState, string> = {
   pending: "not used",
@@ -61,10 +68,16 @@ export default function LadderStepper({ rungs, rungChanges }: Props) {
                     {STATE_WORD[view.state]}
                   </span>
                 </div>
-                <div className="text-sm opacity-80">
-                  {SUBTITLE[rung]} · {view.attempts.length} attempt
-                  {view.attempts.length === 1 ? "" : "s"} · {fmtCredits(view.credits)}
-                </div>
+                {skipped ? (
+                  <div className="text-sm">
+                    skipped — {skipReason(rung, rungChanges) ?? "not needed"}
+                  </div>
+                ) : (
+                  <div className="text-sm opacity-80">
+                    {SUBTITLE[rung]} · {view.attempts.length} attempt
+                    {view.attempts.length === 1 ? "" : "s"} · {fmtCredits(view.credits)}
+                  </div>
+                )}
               </li>
             </Fragment>
           );

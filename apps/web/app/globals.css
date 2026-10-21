@@ -8,6 +8,20 @@
 @theme {
   /* A failing step flashes twice (2 s) when its diagnosis arrives. */
   --animate-fail-flash: fail-flash 1s ease-in-out 2;
+  /* A rung that just became active glows once (1.5 s). */
+  --animate-rung-flash: rung-flash 1.5s ease-out 1;
+
+  @keyframes rung-flash {
+    0% {
+      box-shadow: 0 0 0 0 rgb(56 189 248 / 0.7);
+    }
+    40% {
+      box-shadow: 0 0 0 10px rgb(56 189 248 / 0.25);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgb(56 189 248 / 0);
+    }
+  }
 
   @keyframes fail-flash {
     0%,
@@ -21,7 +35,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-fail-flash {
+  .animate-fail-flash,
+  .animate-rung-flash {
     animation: none;
   }
 }
