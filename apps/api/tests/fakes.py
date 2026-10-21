@@ -112,3 +112,42 @@ def run_record(tf_run_id: str, steps: int, *, proxy: bool = False) -> dict[str, 
             for i in range(1, steps + 1)
         ],
     }
+
+
+class FakeClaude:
+    """Returns scripted structured outputs per output model, in order; records every call."""
+
+    def __init__(self, responses: dict[type, list[Any]] | None = None) -> None:
+        self.responses = {k: list(v) for k, v in (responses or {}).items()}
+        self.calls: list[dict[str, Any]] = []
+
+    async def parse(self, *, system: str, user: str, output_model: type, **kwargs: Any) -> Any:
+        from app.llm.claude import ParseOutcome
+
+        self.calls.append({"model": output_model, "system": system, "user": user, **kwargs})
+        queue = self.responses.get(output_model) or []
+        item = queue.pop(0) if queue else None
+        if isinstance(item, ParseOutcome):
+            return item
+        if item is None:
+            return ParseOutcome(None, "no scripted response")
+        return ParseOutcome(item, None, "end_turn")
+
+    def calls_for(self, output_model: type) -> list[dict[str, Any]]:
+        return [c for c in self.calls if c["model"] is output_model]
+
+
+SAMPLE_PAGE = {
+    "url": "https://shop.example.com/products",
+    "final_url": "https://shop.example.com/products",
+    "title": "Acme Shop — Products",
+    "description": None,
+    "language": "en",
+    "text": (
+        "# Products\n\nWe use cookies to improve your experience. [Accept all] [Manage]\n\n"
+        "Loading products…"
+    ),
+    "latency_ms": 1840,
+    "format": "markdown",
+}
+SAMPLE_FETCH = {"results": [SAMPLE_PAGE], "errors": []}

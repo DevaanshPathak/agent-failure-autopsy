@@ -10,6 +10,7 @@ import httpx
 from app import db
 from app.config import Settings
 from app.events import Emitter, RunEventBus, utcnow
+from app.extract.fetch_extract import extract_from_fetch
 from app.models import (
     RUNG_LABEL,
     Attempt,
@@ -106,6 +107,11 @@ class _Trace:
                 raw=raw or {},
             )
         )
+
+
+def _first_page(fetch_raw: dict[str, Any] | None) -> dict[str, Any] | None:
+    results = (fetch_raw or {}).get("results") or []
+    return results[0] if results and isinstance(results[0], dict) else None
 
 
 def _apply_complete(attempt: Attempt, obj: dict[str, Any]) -> None:
@@ -314,6 +320,97 @@ class LadderController:
             attempt.outcome = AttemptOutcome.cancelled_budget
         attempt.finished_at = utcnow()
         return attempt, tr.events
+
+    # --- Fetch attempt (rung 1) ----------------------------------------------------------------
+
+    async def run_fetch_attempt(
+        self, st: RunState, cfg: AttemptConfig
+    ) -> tuple[Attempt, list[TraceEvent], dict[str, Any] | None]:
+        """Fetch the page (or reuse the cached Fetch text) and let Claude extract the answer.
+        Costs 0 TinyFish credits. Returns (attempt, trace, the Fetch response used)."""
+        attempt = Attempt(attempt_no=cfg.attempt_no, rung=cfg.rung, config=cfg, started_at=utcnow())
+        tr = _Trace(st.em, st.run.id, cfg.attempt_no)
+        fetch_raw: dict[str, Any] | None
+
+        if cfg.from_fetch_cache and st.fetch_raw is not None:
+            fetch_raw = st.fetch_raw
+            page = _first_page(fetch_raw)
+            await tr.note(
+                TraceKind.fetch_result,
+                "Using cached Fetch text (0 credits)",
+                {
+                    "cached": True,
+                    "final_url": (page or {}).get("final_url"),
+                    "chars": len(st.fetch_text or ""),
+                },
+            )
+        else:
+            assert self.tinyfish is not None, "the Fetch rung needs a TinyFish client"
+            try:
+                fetch_raw = await self.tinyfish.fetch(cfg.url)
+            except (TinyFishError, httpx.HTTPError) as e:
+                err = (
+                    e.as_dict()
+                    if isinstance(e, TinyFishError)
+                    else {"code": "NETWORK", "message": str(e)}
+                )
+                attempt.tf_status = "ERROR"
+                attempt.tf_error = err
+                attempt.outcome = AttemptOutcome.error
+                await tr.note(
+                    TraceKind.fetch_error,
+                    f"Fetch failed: {err['code']}",
+                    err,
+                    source=TraceSource.tinyfish_fetch,
+                )
+                attempt.finished_at = utcnow()
+                return attempt, tr.events, None
+            st.fetch_raw = fetch_raw
+            page = _first_page(fetch_raw)
+            st.fetch_text = page.get("text") if page and isinstance(page.get("text"), str) else None
+            if page is not None:
+                where = page.get("final_url") or page.get("url") or cfg.url
+                title = page.get("title")
+                label = f"Fetched {where} ({title})" if title else f"Fetched {where}"
+                await tr.note(
+                    TraceKind.fetch_result, label, fetch_raw, source=TraceSource.tinyfish_fetch
+                )
+            else:
+                errors = fetch_raw.get("errors") or [{}]
+                code, status = errors[0].get("error"), errors[0].get("status")
+                await tr.note(
+                    TraceKind.fetch_error,
+                    f"Fetch error: {code}" + (f" {status}" if status else ""),
+                    fetch_raw,
+                    source=TraceSource.tinyfish_fetch,
+                )
+
+        page = _first_page(fetch_raw)
+        attempt.tf_status = "OK" if page is not None else "ERROR"
+        if page is not None and self.claude is not None:
+            result, extraction, err = await extract_from_fetch(
+                self.claude,
+                goal=cfg.goal,
+                output_schema=cfg.output_schema,
+                expected=st.run.request.expected,
+                page=page,
+                max_chars=self.settings.fetch_text_max_chars,
+            )
+            if extraction is not None:
+                st.extraction = extraction
+            if result is not None:
+                label = f"Extractor: found {', '.join(result)}"
+            elif err:
+                label = f"Extractor error: {err}"
+            else:
+                missing = ", ".join(extraction.missing) if extraction else ""
+                label = f"Extractor: {missing or 'nothing'} not in the page text"
+            raw = extraction.model_dump() if extraction else {"error": err}
+            await tr.note(TraceKind.extraction, label, raw, source=TraceSource.claude_extract)
+            attempt.result = result
+        attempt.credits_estimated = 0
+        attempt.finished_at = utcnow()
+        return attempt, tr.events, fetch_raw
 
     # --- Run -----------------------------------------------------------------------------------
 
