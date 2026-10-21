@@ -12,4 +12,13 @@
 
 ## Setup
 
-Setup instructions arrive in Phase 1. Until then, `.env.example` lists the environment variables and `docs/architecture.md` shows how the pieces connect.
+You need uv, Node 24 and GNU make (on Windows, run make from Git Bash).
+
+```sh
+make setup     # install dependencies and create .env from .env.example
+make sample    # open http://localhost:3000/dev: a full sample run, no API keys needed
+make dev       # API on :8000 and web app on :3000 (add your keys to .env first)
+make test      # API and web tests
+```
+
+See [docs/setup.md](docs/setup.md) for details, and [docs/architecture.md](docs/architecture.md) for how the pieces connect.
