@@ -169,8 +169,7 @@
           "type": "integer"
         },
         "browser_profile": {
-          "$ref": "#/definitions/BrowserProfile",
-          "default": "lite"
+          "$ref": "#/definitions/BrowserProfile"
         },
         "credit_limit": {
           "type": "integer"
@@ -1149,8 +1148,7 @@
           "default": null
         },
         "start_rung": {
-          "$ref": "#/definitions/Rung",
-          "default": "fetch"
+          "$ref": "#/definitions/Rung"
         },
         "url": {
           "type": "string"

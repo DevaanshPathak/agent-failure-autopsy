@@ -82,18 +82,26 @@ _SCHEMA_LISTS = ("anyOf", "oneOf", "allOf", "prefixItems")
 _SCHEMA_VALUES = ("items", "additionalProperties", "not")
 
 
-def _strip_nested_titles(node: Any) -> None:
-    """Drop `title` from nested schemas so json2ts doesn't emit an alias per field."""
+def _clean_nested(node: Any) -> None:
+    """Tidy nested schemas so json2ts emits one name per definition.
+
+    A nested `title` becomes a per-field type alias, and keys next to a `$ref` (pydantic puts the
+    field default there) make json2ts copy the referenced type as `Rung1`, `BrowserProfile1`.
+    """
     if not isinstance(node, dict):
         return
     node.pop("title", None)
+    if "$ref" in node:
+        for key in [k for k in node if k != "$ref"]:
+            del node[key]
+        return
     for sub in (node.get("properties") or {}).values():
-        _strip_nested_titles(sub)
+        _clean_nested(sub)
     for key in _SCHEMA_LISTS:
         for sub in node.get(key) or []:
-            _strip_nested_titles(sub)
+            _clean_nested(sub)
     for key in _SCHEMA_VALUES:
-        _strip_nested_titles(node.get(key))
+        _clean_nested(node.get(key))
 
 
 def build_schema() -> dict[str, Any]:
@@ -104,10 +112,10 @@ def build_schema() -> dict[str, Any]:
     definitions: dict[str, Any] = top.get("$defs", {})
     for name, definition in definitions.items():
         for sub in (definition.get("properties") or {}).values():
-            _strip_nested_titles(sub)
+            _clean_nested(sub)
         for key in _SCHEMA_LISTS:
             for sub in definition.get(key) or []:
-                _strip_nested_titles(sub)
+                _clean_nested(sub)
         definition["title"] = name
     return {
         "$schema": "http://json-schema.org/draft-07/schema#",
