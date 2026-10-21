@@ -205,7 +205,8 @@ export default function TraceTimeline({ attempts }: Props) {
                   .map((ev) => <TraceRow key={ev.seq} ev={ev} attempt={attempt} />)}
               <VerifyRow attempt={attempt} />
             </ol>
-            {open && attempt.diagnosis && (
+            {/* The diagnosis stays visible when the attempt collapses: it is the story. */}
+            {attempt.diagnosis && (
               <div className="mt-2">
                 <DiagnosisCard
                   diagnosis={attempt.diagnosis}
