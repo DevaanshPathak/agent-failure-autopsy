@@ -23,12 +23,14 @@ from app.models import (
     RunRequest,
     RunStatus,
     SiteInfo,
+    Stats,
     TraceEvent,
     TraceKind,
 )
 from app.replay.player import replay_run, trace_path
 from app.services import Services, get_services
 from app.sites import SitesError, find_site, load_sites
+from app.stats import MAX_ROWS, compute_stats
 from app.tinyfish.client import TinyFishError
 
 router = APIRouter(tags=["runs"])
@@ -263,3 +265,8 @@ async def cancel_run(run_id: str, svc: ServicesDep) -> dict[str, str]:
             baseline_credits_estimate=run.baseline_credits_estimate,
         )
     return {"run_id": run_id, "status": "cancelling"}
+
+
+@router.get("/stats", response_model=Stats)
+async def stats(include_replay: bool = False) -> Stats:
+    return compute_stats(await db.list_runs(MAX_ROWS), include_replay)
