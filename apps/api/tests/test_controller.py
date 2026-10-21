@@ -286,3 +286,54 @@ async def test_sample_run_matches_the_fixture_field_by_field(temp_db):
     ]
     for got, want in zip(events, sample, strict=True):
         assert _comparable(got) == _comparable(want), want["seq"]
+
+
+async def test_misread_is_fixed_by_a_free_re_extraction_from_the_cached_fetch(temp_db):
+    page = {
+        "url": "https://books.toscrape.com/x",
+        "final_url": "https://books.toscrape.com/x",
+        "title": "A Light in the Attic",
+        "text": (
+            "# A Light in the Attic\n\nPrice (incl. tax) £51.77\n\n"
+            "Availability: In stock (22 available)"
+        ),
+    }
+    tinyfish = FakeTinyFish(
+        fetch=[{"results": [page], "errors": []}],
+        streams=[_sse("tf_m", ["Reading the availability"], result={"copies": "In stock"})],
+        runs={"tf_m": run_record("tf_m", 3)},
+    )
+    claude = FakeClaude(
+        {
+            FetchExtraction: [
+                FetchExtraction(
+                    found=False, result_json="", missing=["copies"], interaction_hint=""
+                ),
+                FetchExtraction(
+                    found=True, result_json='{"answer": "22"}', missing=[], interaction_hint=""
+                ),
+            ]
+        }
+    )
+    request = RunRequest(
+        url="https://books.toscrape.com/x",
+        goal="How many copies are available?",
+        expected={"type": "regex", "value": r"\b22\b"},
+    )
+    run, events = await _execute(tinyfish, claude, request)
+
+    assert [a.rung.value for a in run.attempts] == ["fetch", "agent", "fetch"]
+    assert run.attempts[2].config.from_fetch_cache is True
+    assert run.attempts[2].config.output_schema == {
+        "type": "object",
+        "properties": {"answer": {"type": "string"}},
+        "required": ["answer"],
+    }
+    assert tinyfish.fetched == ["https://books.toscrape.com/x"]  # the cache, not a second fetch
+    assert run.credits_used == 3  # only the agent attempt cost anything
+    assert run.status is RunStatus.verified
+    assert run.verdict_reason == (
+        "Verified on attempt 3 (Rung 1 · Fetch) after fixing needs_interaction → misread_page."
+    )
+    labels = [e["event"]["label"] for e in events if e["type"] == "trace_event"]
+    assert "Using cached Fetch text (0 credits)" in labels
