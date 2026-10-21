@@ -15,6 +15,25 @@ import {
 import type { ExpectedCheckType, SiteInfo } from "@/lib/types";
 
 const CUSTOM = "__custom__";
+const LAST_SITE_KEY = "afa.lastSite";
+
+// localStorage can be missing or throw (private windows, blocked storage): never let it break the form.
+function readLastSite(): string | null {
+  try {
+    return window.localStorage.getItem(LAST_SITE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeLastSite(id: string | null): void {
+  try {
+    if (id) window.localStorage.setItem(LAST_SITE_KEY, id);
+    else window.localStorage.removeItem(LAST_SITE_KEY);
+  } catch {
+    // Remembering the site is a convenience only.
+  }
+}
 
 const EXPECTED_TYPES: { value: ExpectedCheckType | ""; label: string }[] = [
   { value: "", label: "None" },
@@ -41,7 +60,10 @@ export default function RunForm() {
     let cancelled = false;
     getSites()
       .then((list) => {
-        if (!cancelled) setSites(list);
+        if (cancelled) return;
+        setSites(list);
+        const remembered = list.find((s) => s.id === readLastSite());
+        if (remembered) setForm((f) => (f.siteId || f.url ? f : siteToForm(remembered, f)));
       })
       .catch((err: unknown) => {
         if (!cancelled) setSitesError(apiErrorMessages(err)[0]);
@@ -56,6 +78,7 @@ export default function RunForm() {
 
   function chooseSite(id: string) {
     const chosen = sites.find((s) => s.id === id);
+    writeLastSite(chosen ? chosen.id : null);
     if (chosen) setForm((f) => siteToForm(chosen, f));
     else update({ siteId: null });
   }
@@ -111,6 +134,16 @@ export default function RunForm() {
         </select>
         {sitesError && (
           <p className="text-sm text-amber-300">Demo sites unavailable: {sitesError}</p>
+        )}
+        {site && (
+          <p className="text-sm text-slate-300">
+            {site.expected_class ? `Shows ${CLASS_LABEL[site.expected_class]}` : "Demo site"}
+            {site.has_trace ? (
+              <span className="text-amber-300"> · ● recorded trace available</span>
+            ) : (
+              <span className="text-slate-400"> · not recorded yet</span>
+            )}
+          </p>
         )}
         {site?.notes && <p className="text-sm text-slate-400">{site.notes}</p>}
       </div>
