@@ -5,6 +5,27 @@
   --font-mono: var(--font-geist-mono);
 }
 
+@theme {
+  /* A failing step flashes twice (2 s) when its diagnosis arrives. */
+  --animate-fail-flash: fail-flash 1s ease-in-out 2;
+
+  @keyframes fail-flash {
+    0%,
+    100% {
+      background-color: var(--color-rose-950);
+    }
+    50% {
+      background-color: var(--color-rose-700);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fail-flash {
+    animation: none;
+  }
+}
+
 /* Dark, projector-friendly base. */
 html {
   font-size: 17px;

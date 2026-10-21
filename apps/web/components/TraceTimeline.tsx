@@ -44,7 +44,7 @@ function TraceRow({ ev, attempt }: { ev: TraceEvent; attempt: AttemptView }) {
     <li
       id={rowId(attempt.attemptNo, ev.seq)}
       className={`scroll-mt-4 rounded px-2 py-1.5 ${
-        failing ? "border-l-4 border-rose-500 bg-rose-950" : "bg-slate-900/70"
+        failing ? "animate-fail-flash border-l-4 border-rose-500 bg-rose-950" : "bg-slate-900/70"
       }`}
     >
       <div className="flex items-baseline gap-3">
@@ -138,16 +138,50 @@ export default function TraceTimeline({ attempts }: Props) {
   const scroller = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
   const pendingJump = useRef<{ attemptNo: number; seq: number } | null>(null);
+  const seenFailing = useRef(new Set<string>());
+  /** While a failing step is being shown, following the newest event waits (ms timestamp). */
+  const holdUntil = useRef(0);
+  /** Scroll events before this time come from our own scrolling, not the user. */
+  const programmaticUntil = useRef(0);
   const [overrides, setOverrides] = useState<Record<number, boolean>>({});
 
   const latest = attempts.length ? attempts[attempts.length - 1].attemptNo : null;
   const isOpen = (n: number) => overrides[n] ?? n === latest;
   const eventCount = attempts.reduce((n, a) => n + a.events.length + (a.verify ? 1 : 0), 0);
+  const failingRows = attempts
+    .filter((a) => a.failingSeq !== null && isOpen(a.attemptNo))
+    .map((a) => rowId(a.attemptNo, a.failingSeq as number))
+    .join("|");
 
+  // Follow the newest event unless the user scrolled up; wait while a failing step is shown.
   useEffect(() => {
     const el = scroller.current;
-    if (el && stick.current) el.scrollTop = el.scrollHeight;
+    if (!el || !stick.current) return;
+    const toBottom = () => {
+      programmaticUntil.current = performance.now() + 300;
+      el.scrollTop = el.scrollHeight;
+    };
+    const wait = holdUntil.current - performance.now();
+    if (wait <= 0) {
+      toBottom();
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      if (stick.current) toBottom();
+    }, wait);
+    return () => window.clearTimeout(timer);
   }, [eventCount]);
+
+  // When a diagnosis arrives, bring its (red, flashing) failing step into view once.
+  useEffect(() => {
+    for (const id of failingRows ? failingRows.split("|") : []) {
+      if (seenFailing.current.has(id)) continue;
+      seenFailing.current.add(id);
+      holdUntil.current = performance.now() + 2500;
+      programmaticUntil.current = performance.now() + 1000;
+      document.getElementById(id)?.scrollIntoView({ block: "center", behavior: "smooth" });
+    }
+  }, [failingRows]);
 
   // Runs after every render: performs a requested jump once its group is expanded.
   useEffect(() => {
@@ -170,6 +204,7 @@ export default function TraceTimeline({ attempts }: Props) {
       ref={scroller}
       className="max-h-[70vh] space-y-4 overflow-y-auto pr-1"
       onScroll={(e) => {
+        if (performance.now() < programmaticUntil.current) return;
         const el = e.currentTarget;
         stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < STICK_PX;
       }}
