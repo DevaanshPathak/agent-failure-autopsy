@@ -9,6 +9,8 @@ import httpx
 
 from app import db
 from app.config import Settings
+from app.diagnose.diagnoser import diagnose
+from app.diagnose.rules import explain
 from app.events import Emitter, RunEventBus, utcnow
 from app.extract.fetch_extract import extract_from_fetch
 from app.models import (
@@ -26,7 +28,8 @@ from app.models import (
     TraceKind,
     TraceSource,
 )
-from app.patch.planner import compose_goal
+from app.patch.planner import PlanContext, compose_goal
+from app.sites import find_site
 from app.tinyfish.client import (
     TinyFishClient,
     TinyFishError,
@@ -44,6 +47,16 @@ CANCEL_GRACE_S = 15.0
 WATCHDOG_EXTRA_S = 60.0
 RETRY_BEFORE_START_S = 5.0
 TERMINAL_STATUSES = {"COMPLETED", "FAILED", "CANCELLED"}
+# TinyFish refusals that another attempt cannot fix.
+HARD_STOP_CODES = {
+    "INSUFFICIENT_CREDITS",
+    "FREE_ALLOWANCE_EXHAUSTED",
+    "FORBIDDEN",
+    "INVALID_API_KEY",
+    "MISSING_API_KEY",
+    "UNAUTHORIZED",
+    "INVALID_INPUT",
+}
 
 
 @dataclass
@@ -414,6 +427,22 @@ class LadderController:
 
     # --- Run -----------------------------------------------------------------------------------
 
+    def _baseline_estimate(self, run: Run) -> int:
+        """Naive baseline (ADR-005): always stealth + proxy, run 3 times = 3 x steps of one run."""
+        site = find_site(self.settings.fixtures_dir, run.request.site_id)
+        agent_steps = [
+            a.num_of_steps
+            for a in run.attempts
+            if a.rung is not Rung.fetch and a.num_of_steps is not None
+        ]
+        if site is not None and site.baseline_steps:
+            steps = site.baseline_steps
+        elif agent_steps:
+            steps = max(agent_steps)
+        else:
+            steps = self.settings.baseline_default_steps
+        return 3 * steps
+
     async def _verdict(
         self, st: RunState, status: RunStatus, reason: str, final_result: dict[str, Any] | None
     ) -> None:
@@ -422,6 +451,7 @@ class LadderController:
         run.finished_at = utcnow()
         run.verdict_reason = reason
         run.final_result = final_result
+        run.baseline_credits_estimate = self._baseline_estimate(run)
         await db.save_run(run)
         await st.em.verdict(
             status,
@@ -433,44 +463,173 @@ class LadderController:
         )
 
     async def execute(self, run_id: str) -> None:
-        """Phase 2: one agent attempt, verified independently (Phase 3 adds the ladder loop)."""
+        """Climb the ladder for one run. Never raises: a crash becomes an `error` verdict."""
         run = await db.get_run(run_id)
         if run is None:
             log.error("run %s not found", run_id)
             return
         st = RunState(
-            run=run, em=Emitter(run_id, self.bus), rung=Rung.agent, schema=run.request.output_schema
+            run=run,
+            em=Emitter(run_id, self.bus),
+            rung=run.request.start_rung,
+            schema=run.request.output_schema,
         )
         try:
-            run.status = RunStatus.running
-            await db.save_run(run)
-            await st.em.budget(0, run.max_attempts, 0, run.max_credits)
-            await st.em.rung_change(None, Rung.agent, [], f"Start at {RUNG_LABEL[Rung.agent]}.")
-            cfg = self.build_config(st, 1)
-            await st.em.attempt_started(cfg)
-            attempt, trace = await self.run_agent_attempt(st, cfg)
-            run.attempts.append(attempt)
-            run.credits_used += attempt.credits_estimated
-            await db.save_run(run)
-            await st.em.budget(
-                len(run.attempts), run.max_attempts, run.credits_used, run.max_credits
-            )
-            vr = verify(attempt, run.request, trace, None)
-            attempt.verify = vr
-            await st.em.verify(vr)
-            if vr.passed:
-                attempt.outcome = AttemptOutcome.verified
-                await self._verdict(
-                    st,
-                    RunStatus.verified,
-                    f"Verified on attempt 1 ({RUNG_LABEL[Rung.agent]}).",
-                    attempt.result,
-                )
-            else:
-                attempt.outcome = attempt.outcome or AttemptOutcome.rejected
-                await self._verdict(st, RunStatus.unrecoverable, vr.summary, None)
+            await self._climb(st)
         except Exception as e:
             log.exception("run %s crashed", run_id)
             await self._verdict(
                 st, RunStatus.error, f"Internal error: {type(e).__name__}: {e}", None
             )
+
+    def _plan_context(self, st: RunState, attempt: Attempt) -> PlanContext:
+        return PlanContext(
+            rung=attempt.rung,
+            request=st.run.request,
+            from_fetch_cache=attempt.config.from_fetch_cache,
+            current_schema=st.schema,
+            skipped=set(st.skipped),
+            history=list(st.history),
+            history_rungs=list(st.history_rungs),
+            fetch_text_available=bool(st.fetch_text),
+            fetch_extraction_found=bool(st.extraction and st.extraction.found),
+            fetch_text=st.fetch_text,
+            reextract_tried=st.reextract_tried,
+            proxy_country=self.settings.proxy_country,
+            schema_entitled=st.schema_entitled,
+        )
+
+    async def _climb(self, st: RunState) -> None:
+        run, em, settings = st.run, st.em, self.settings
+        run.status = RunStatus.running
+        await db.save_run(run)
+        await em.budget(0, run.max_attempts, 0, run.max_credits)
+
+        if st.rung is Rung.fetch and self.claude is None:
+            st.rung = Rung.agent
+            st.skipped.add(Rung.fetch)
+            await em.rung_change(
+                None,
+                Rung.agent,
+                [Rung.fetch],
+                "Rung 1 needs the extractor (ANTHROPIC_API_KEY not set) — starting at Rung 2.",
+            )
+        else:
+            await em.rung_change(None, st.rung, [], f"Start at {RUNG_LABEL[st.rung]}.")
+
+        for attempt_no in range(1, run.max_attempts + 1):
+            if st.rung is not Rung.fetch:
+                remaining = run.max_credits - run.credits_used
+                if remaining < settings.agent_min_credits:
+                    await self._verdict(
+                        st,
+                        RunStatus.budget_exhausted,
+                        "Budget spent: not enough credits left for another agent attempt "
+                        f"({remaining} left, {settings.agent_min_credits} needed).",
+                        None,
+                    )
+                    return
+
+            cfg = self.build_config(st, attempt_no)
+            await em.attempt_started(cfg)
+            fetch_used: dict[str, Any] | None = None
+            if st.rung is Rung.fetch:
+                attempt, trace, fetch_used = await self.run_fetch_attempt(st, cfg)
+            else:
+                attempt, trace = await self.run_agent_attempt(st, cfg)
+            run.attempts.append(attempt)
+            run.credits_used += attempt.credits_estimated
+            await db.save_run(run)
+            await em.budget(len(run.attempts), run.max_attempts, run.credits_used, run.max_credits)
+
+            tf_error = attempt.tf_error or {}
+            code = str(tf_error.get("code") or "").upper()
+            if attempt.outcome is AttemptOutcome.error and code in HARD_STOP_CODES:
+                message = str(tf_error.get("message") or "")
+                if code == "FORBIDDEN" and "output_schema" in message and cfg.output_schema:
+                    st.schema_entitled = False  # retry the same rung without a schema
+                    continue
+                await self._verdict(
+                    st, RunStatus.error, f"TinyFish refused the request: {code} — {message}", None
+                )
+                return
+
+            vr = verify(attempt, run.request, trace, fetch_used)
+            attempt.verify = vr
+            await em.verify(vr)
+            if vr.passed:
+                attempt.outcome = AttemptOutcome.verified
+                fixed = [d.failure_class.value for d in st.history]
+                reason = f"Verified on attempt {attempt_no} ({RUNG_LABEL[attempt.rung]})"
+                if fixed:
+                    reason += f" after fixing {' → '.join(fixed)}"
+                await self._verdict(st, RunStatus.verified, reason + ".", attempt.result)
+                return
+            if attempt.outcome is AttemptOutcome.cancelled_budget:
+                await self._verdict(
+                    st,
+                    RunStatus.budget_exhausted,
+                    "Budget spent: the attempt was cancelled at the credit limit.",
+                    None,
+                )
+                return
+            attempt.outcome = attempt.outcome or AttemptOutcome.rejected
+
+            diagnosis = await diagnose(
+                attempt=attempt,
+                vr=vr,
+                trace=trace,
+                fetch=fetch_used,
+                fetch_text=st.fetch_text,
+                extraction=st.extraction if attempt.rung is Rung.fetch else None,
+                history=list(st.history),
+                plan_ctx=self._plan_context(st, attempt),
+                claude=self.claude,
+                threshold=settings.rules_confidence_threshold,
+                goal=run.request.goal,
+                url=run.request.url,
+            )
+            attempt.diagnosis = diagnosis
+            await db.save_run(run)
+            await em.diagnosis(diagnosis)
+            st.history.append(diagnosis)
+            st.history_rungs.append(attempt.rung)
+
+            patch = diagnosis.patch
+            if patch.stop or not diagnosis.recoverable:
+                await self._verdict(
+                    st,
+                    RunStatus.unrecoverable,
+                    patch.stop_reason or explain(diagnosis.failure_class),
+                    None,
+                )
+                return
+
+            previous = st.rung
+            st.rung = patch.next_rung or st.rung
+            st.skipped |= set(patch.skip_rungs)
+            if patch.goal_prefix and patch.goal_prefix not in st.prefixes:
+                st.prefixes.append(patch.goal_prefix)
+            if patch.goal_suffix and patch.goal_suffix not in st.suffixes:
+                st.suffixes.append(patch.goal_suffix)
+            if patch.output_schema is not None:
+                st.schema = patch.output_schema
+            st.from_fetch_cache = patch.reextract_from_fetch
+            st.reextract_tried = st.reextract_tried or patch.reextract_from_fetch
+            st.patches_applied.extend(patch.summary)
+            if st.rung is not previous or patch.skip_rungs:
+                headline = patch.summary[0] if patch.summary else "next attempt"
+                await em.rung_change(
+                    previous,
+                    st.rung,
+                    list(patch.skip_rungs),
+                    f"{diagnosis.failure_class.value}: {headline}",
+                )
+
+        await self._verdict(
+            st,
+            RunStatus.budget_exhausted,
+            f"Budget spent: {run.max_attempts}/{run.max_attempts} attempts used "
+            f"({run.credits_used}/{run.max_credits} credits).",
+            None,
+        )

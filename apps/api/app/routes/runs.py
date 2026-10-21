@@ -3,13 +3,10 @@
 import asyncio
 import json
 from collections.abc import AsyncIterator
-from pathlib import Path
 from typing import Annotated, Any
 from uuid import uuid4
 
-import yaml
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
-from pydantic import ValidationError
 from sse_starlette import EventSourceResponse, ServerSentEvent
 
 from app import db
@@ -24,33 +21,18 @@ from app.models import (
     SiteInfo,
 )
 from app.services import Services, get_services
+from app.sites import SitesError, find_site, load_sites
 
 router = APIRouter(tags=["runs"])
 ServicesDep = Annotated[Services, Depends(get_services)]
 
 
-def load_sites(fixtures_dir: Path) -> list[SiteInfo]:
-    """Demo sites from fixtures/sites.yaml; template entries (id TODO*) are skipped."""
-    path = fixtures_dir / "sites.yaml"
-    if not path.is_file():
-        return []
-    try:
-        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-        sites = []
-        for entry in data.get("sites") or []:
-            site_id = str(entry.get("id") or "")
-            if not site_id or site_id.startswith("TODO"):
-                continue
-            has_trace = (fixtures_dir / "traces" / f"{site_id}.jsonl").is_file()
-            sites.append(SiteInfo.model_validate({**entry, "has_trace": has_trace}))
-        return sites
-    except (yaml.YAMLError, ValidationError, AttributeError) as e:
-        raise HTTPException(status_code=500, detail=f"fixtures/sites.yaml is invalid: {e}") from e
-
-
 @router.get("/sites", response_model=list[SiteInfo])
 async def list_sites(svc: ServicesDep) -> list[SiteInfo]:
-    return load_sites(svc.settings.fixtures_dir)
+    try:
+        return load_sites(svc.settings.fixtures_dir)
+    except SitesError as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 async def _run_live(svc: Services, run_id: str) -> None:
@@ -63,7 +45,7 @@ async def create_run(req: RunRequest, svc: ServicesDep) -> RunCreated:
     settings = svc.settings
     mode = req.mode or RunMode(settings.mode)
     if req.site_id:
-        site = next((s for s in load_sites(settings.fixtures_dir) if s.id == req.site_id), None)
+        site = find_site(settings.fixtures_dir, req.site_id)
         if site is not None:
             req = req.model_copy(
                 update={
