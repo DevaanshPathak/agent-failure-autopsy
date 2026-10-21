@@ -258,3 +258,19 @@ def test_ui_copy_truncates_long_strings_without_touching_the_original():
     assert copy.raw["result"]["text"].endswith("…[truncated 500 chars]")
     assert len(copy.raw["result"]["items"][0]) < 2100
     assert ev.raw["result"]["text"] == long_text
+
+
+def test_stealth_body_is_exactly_the_documented_shape():
+    cfg = _cfg(
+        rung=Rung.agent_stealth,
+        browser_profile=BrowserProfile.stealth,
+        proxy_enabled=True,
+        proxy_country="US",
+    )
+    assert build_agent_body(cfg) == {
+        "url": "https://shop.example.com/products",
+        "goal": "List the first 3 products",
+        "browser_profile": "stealth",
+        "agent_config": {"max_duration_seconds": 150},
+        "proxy_config": {"enabled": True, "country_code": "US"},
+    }

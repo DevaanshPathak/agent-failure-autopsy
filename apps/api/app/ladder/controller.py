@@ -322,6 +322,10 @@ class LadderController:
                     source=TraceSource.tinyfish_runs,
                     tf_run_id=attempt.tf_run_id,
                 )
+                if cfg.proxy_enabled and "browser_config" in snap and not proxy_on:
+                    await tr.note(
+                        TraceKind.system, "Warning: TinyFish reports the proxy was not applied"
+                    )
             except (TinyFishError, httpx.HTTPError) as e:
                 await tr.note(TraceKind.stream_error, f"Could not read the run record: {e}")
 

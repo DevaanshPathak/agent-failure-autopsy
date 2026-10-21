@@ -251,3 +251,16 @@ async def test_low_remaining_credits_stop_before_paying(temp_db):
     assert len(tinyfish.bodies) == 1  # 3 credits spent, 2 left < AGENT_MIN_CREDITS (3)
     assert run.status is RunStatus.budget_exhausted
     assert "not enough credits left" in run.verdict_reason
+
+
+async def test_stealth_attempt_warns_when_tinyfish_did_not_apply_the_proxy(temp_db):
+    tinyfish = FakeTinyFish(
+        streams=[_sse("tf_p", ["Reading"], result=PRODUCTS)],
+        runs={"tf_p": run_record("tf_p", 1, proxy=False)},
+    )
+    request = SAMPLE_REQUEST.model_copy(update={"start_rung": Rung.agent_stealth})
+    run, events = await _execute(tinyfish, None, request)
+    labels = [e["event"]["label"] for e in events if e["type"] == "trace_event"]
+    assert "Warning: TinyFish reports the proxy was not applied" in labels
+    assert tinyfish.bodies[0]["browser_profile"] == "stealth"
+    assert run.attempts[0].config.proxy_country == "US"
