@@ -24,6 +24,8 @@ from app.services import Services, get_services
 from app.sites import SitesError, find_site, load_sites
 
 router = APIRouter(tags=["runs"])
+# How long a stream of an already-finished run waits for a verdict that is still in flight.
+FINISHED_RUN_GRACE_S = 3.0
 ServicesDep = Annotated[Services, Depends(get_services)]
 
 
@@ -119,11 +121,19 @@ async def stream_run(
                 yield _sse(payload)
                 if payload["type"] == "verdict":
                     return
+            # A finished run's final status is saved just before its verdict is published, so a
+            # final status doesn't mean everything is stored yet: wait (briefly) for the verdict.
             current = await db.get_run(run_id)
-            if current is not None and current.status in VERDICT_STATUSES:
-                return
+            finished = current is not None and current.status in VERDICT_STATUSES
             while True:
-                payload = await queue.get()
+                try:
+                    timeout = FINISHED_RUN_GRACE_S if finished else None
+                    payload = await asyncio.wait_for(queue.get(), timeout)
+                except TimeoutError:
+                    # No verdict will come (e.g. the API restarted mid-run): send what is stored.
+                    for payload in await db.list_ui_events(run_id, last):
+                        yield _sse(payload)
+                    return
                 if payload["seq"] <= last:
                     continue
                 last = payload["seq"]

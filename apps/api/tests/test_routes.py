@@ -1,10 +1,15 @@
+import asyncio
 import json
+from datetime import UTC, datetime
 
 import httpx
 import pytest
 
+from app import db
 from app.config import Settings
+from app.events import Emitter
 from app.main import create_app
+from app.models import Run, RunMode, RunRequest, RunStatus
 from app.tinyfish.client import TinyFishError
 from tests.fakes import FakeTinyFish, run_record, sse_run
 
@@ -209,3 +214,49 @@ async def test_unknown_run_is_404(temp_db):
     async with await _client(temp_db) as client:
         assert (await client.get("/runs/nope")).status_code == 404
         assert (await client.get("/runs/nope/stream")).status_code == 404
+
+
+async def _finished_run_with_events(services, run_id: str) -> None:
+    run = Run(
+        id=run_id,
+        created_at=datetime(2026, 11, 1, 11, 0, tzinfo=UTC),
+        mode=RunMode.live,
+        request=RunRequest(**{k: v for k, v in BODY.items() if k != "start_rung"}),
+        status=RunStatus.verified,  # saved as final before the verdict event is published
+        max_attempts=4,
+        max_credits=40,
+    )
+    await db.insert_run(run)
+    await Emitter(run_id, services.bus).budget(0, 4, 0, 40)
+
+
+async def test_stream_waits_for_a_verdict_still_in_flight(temp_db):
+    app = create_app(_settings(), tinyfish=FakeTinyFish())
+    services = app.state.services
+    await _finished_run_with_events(services, "race1")
+
+    async def publish_verdict_soon():
+        await asyncio.sleep(0.2)
+        await Emitter("race1", services.bus).verdict(
+            RunStatus.verified,
+            "ok",
+            final_result=None,
+            attempts_used=1,
+            credits_used=1,
+            baseline_credits_estimate=None,
+        )
+
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t") as c:
+        publisher = asyncio.create_task(publish_verdict_soon())
+        resp = await c.get("/runs/race1/stream")
+        await publisher
+    assert [e["type"] for e in _events(resp.text)] == ["budget", "verdict"]
+
+
+async def test_stream_of_a_finished_run_without_verdict_ends(temp_db, monkeypatch):
+    monkeypatch.setattr("app.routes.runs.FINISHED_RUN_GRACE_S", 0.05)
+    app = create_app(_settings(), tinyfish=FakeTinyFish())
+    await _finished_run_with_events(app.state.services, "orphan1")
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://t") as c:
+        resp = await c.get("/runs/orphan1/stream")
+    assert [e["type"] for e in _events(resp.text)] == ["budget"]
