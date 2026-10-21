@@ -78,10 +78,11 @@ async def test_create_run_without_tinyfish_key_is_503(temp_db):
     assert "TINYFISH_API_KEY" in resp.json()["detail"]
 
 
-async def test_replay_mode_is_not_built_yet(temp_db):
+async def test_replay_without_a_recorded_trace_is_409(temp_db):
     async with await _client(temp_db, tinyfish=FakeTinyFish()) as client:
-        resp = await client.post("/runs", json={**BODY, "mode": "replay"})
-    assert resp.status_code == 501
+        resp = await client.post("/runs", json={**BODY, "mode": "replay", "site_id": "nope"})
+    assert resp.status_code == 409
+    assert resp.json()["detail"].startswith("replay_unavailable")
 
 
 async def test_invalid_request_is_422(temp_db):

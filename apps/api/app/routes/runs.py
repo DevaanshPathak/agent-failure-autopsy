@@ -26,6 +26,7 @@ from app.models import (
     TraceEvent,
     TraceKind,
 )
+from app.replay.player import replay_run, trace_path
 from app.services import Services, get_services
 from app.sites import SitesError, find_site, load_sites
 from app.tinyfish.client import TinyFishError
@@ -63,10 +64,14 @@ async def create_run(req: RunRequest, svc: ServicesDep) -> RunCreated:
                 }
             )
     if mode is RunMode.replay:
-        raise HTTPException(status_code=501, detail="replay mode arrives in Phase 5")
-    if svc.tinyfish is None:
+        if trace_path(settings.fixtures_dir, req.site_id) is None:
+            raise HTTPException(
+                status_code=409,
+                detail=f"replay_unavailable: no recorded trace for site '{req.site_id}'",
+            )
+    elif svc.tinyfish is None:
         raise HTTPException(status_code=503, detail="TINYFISH_API_KEY is not set — use replay mode")
-    if svc.live_semaphore.locked():
+    elif svc.live_semaphore.locked():
         raise HTTPException(status_code=429, detail="another live run is in progress")
 
     run = Run(
@@ -79,7 +84,11 @@ async def create_run(req: RunRequest, svc: ServicesDep) -> RunCreated:
         max_credits=req.max_credits if req.max_credits is not None else settings.max_credits,
     )
     await db.insert_run(run)
-    svc.track(run.id, asyncio.create_task(_run_live(svc, run.id), name=f"run-{run.id}"))
+    if mode is RunMode.replay:
+        work = replay_run(run, svc.bus, settings.fixtures_dir, settings.replay_speed)
+    else:
+        work = _run_live(svc, run.id)
+    svc.track(run.id, asyncio.create_task(work, name=f"run-{run.id}"))
     return RunCreated(run_id=run.id, mode=mode, stream_url=f"/runs/{run.id}/stream")
 
 
