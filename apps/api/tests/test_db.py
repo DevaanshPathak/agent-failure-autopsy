@@ -1,18 +1,9 @@
 from datetime import UTC, datetime
 
-import pytest
 from sqlalchemy import inspect
 
 from app import db
 from app.models import Run, RunMode, RunRequest, RunStatus, TraceEvent, TraceKind, TraceSource
-
-
-@pytest.fixture
-async def temp_db(tmp_path):
-    db.configure(f"sqlite+aiosqlite:///{(tmp_path / 'test.db').as_posix()}")
-    await db.init_db()
-    yield
-    await db.dispose()
 
 
 def _run(run_id: str, created: datetime) -> Run:
