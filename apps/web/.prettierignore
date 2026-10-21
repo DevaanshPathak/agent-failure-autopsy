@@ -1,0 +1,4 @@
+.next
+node_modules
+lib/types.ts
+next-env.d.ts
