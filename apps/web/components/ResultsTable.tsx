@@ -10,11 +10,22 @@ function time(iso: string): string {
     : d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
-export default function ResultsTable({ rows }: { rows: StatsRow[] }) {
+interface Props {
+  rows: StatsRow[];
+  /** Extra line under the site id (e.g. "illustrative sample · hand-written"). */
+  rowNote?: (row: StatsRow) => string | null;
+  emptyText?: string;
+}
+
+export default function ResultsTable({
+  rows,
+  rowNote,
+  emptyText = "No runs yet. Start one from the Run page.",
+}: Props) {
   if (rows.length === 0) {
     return (
       <p className="rounded-lg border border-dashed border-slate-700 p-6 text-center text-slate-400">
-        No runs yet. Start one from the Run page.
+        {emptyText}
       </p>
     );
   }
@@ -48,6 +59,7 @@ export default function ResultsTable({ rows }: { rows: StatsRow[] }) {
               </td>
               <td className="max-w-[20rem] px-3 py-2">
                 <div className="font-medium text-slate-100">{r.site_id ?? "custom"}</div>
+                {rowNote?.(r) && <div className="text-sm text-violet-200">{rowNote(r)}</div>}
                 <div className="truncate font-mono text-sm text-slate-400" title={r.url}>
                   {r.url}
                 </div>
