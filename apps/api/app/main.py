@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app import __version__, db
 from app.config import Settings, get_settings
 from app.events import RunEventBus
+from app.guard import live_usage
 from app.ladder.controller import LadderController
 from app.llm.budget import ClaudeBudget
 from app.llm.claude import ClaudeClient
@@ -91,6 +92,7 @@ def create_app(
     async def health() -> Health:
         budget_state = services.claude_budget
         await budget_state.ensure_loaded()
+        usage = await live_usage(settings)
         return Health(
             status="ok",
             mode=RunMode(settings.mode),
@@ -102,6 +104,10 @@ def create_app(
             claude_spent_usd=round(budget_state.spent_usd, 4),
             claude_budget_usd=budget_state.cap_usd,
             claude_calls=budget_state.calls,
+            claude_ready=services.claude is not None,
+            live_run_active=usage.active > 0,
+            live_credits_used=usage.credits_used,
+            live_credit_cap=settings.live_credit_cap,
         )
 
     return app

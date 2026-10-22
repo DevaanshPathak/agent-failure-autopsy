@@ -4,9 +4,19 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+_HERE = Path(__file__).resolve()
+API_ROOT = _HERE.parents[1]
+# In a deploy bundle that holds only apps/api, there is no repo root above it.
+REPO_ROOT = _HERE.parents[3] if len(_HERE.parents) > 3 else API_ROOT
+
+
+def _default_fixtures_dir() -> Path:
+    """The repo's fixtures/, or a copy bundled next to the API (the Vercel deploy)."""
+    repo = REPO_ROOT / "fixtures"
+    return repo if repo.is_dir() else API_ROOT / "fixtures"
 
 
 class Settings(BaseSettings):
@@ -24,6 +34,8 @@ class Settings(BaseSettings):
     # Hard cap on total Claude spend (USD), tracked from real token usage across restarts.
     anthropic_budget_usd: float = 4.0
     database_url: str = "sqlite+aiosqlite:///./autopsy.db"
+    # Neon (Vercel Marketplace) also sets a direct, non-pgbouncer URL; it is used when present.
+    database_url_unpooled: str | None = None
     mode: Literal["live", "replay"] = "live"
     max_attempts: int = 4
     max_credits: int = 40
@@ -39,7 +51,19 @@ class Settings(BaseSettings):
     baseline_default_steps: int = 15
     max_concurrent_live_runs: int = 1
     cors_origins: str = "http://localhost:3000"
-    fixtures_dir: Path = REPO_ROOT / "fixtures"
+    fixtures_dir: Path = Field(default_factory=_default_fixtures_dir)
+
+    # --- Public deployment (docs/deploy.md) ---
+    # Serverless hosts stop background work once a response is sent, so a run executes inside
+    # the request that streams it (GET /runs/{id}/stream) instead of a background task.
+    run_in_stream: bool = False
+    # Wall-clock limit per run (seconds), kept under the host's request limit. None = no limit.
+    run_deadline_s: float | None = None
+    # A queued/running run with no task in this process, older than this, was interrupted.
+    stale_run_s: float = 900.0
+    # Spend caps shared by every visitor, counted in the database. None = no cap.
+    live_credit_cap: int | None = None
+    live_runs_per_hour: int | None = None
 
     @property
     def cors_origin_list(self) -> list[str]:

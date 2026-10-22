@@ -364,8 +364,12 @@ export interface Health {
   claude_budget_usd: number;
   claude_calls: number;
   claude_model: string;
+  claude_ready: boolean;
   claude_spent_usd: number;
   db: "ok" | "error";
+  live_credit_cap: number | null;
+  live_credits_used: number;
+  live_run_active: boolean;
   mode: RunMode;
   status: "ok";
   tinyfish_key: boolean;

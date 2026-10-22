@@ -46,6 +46,11 @@ POLL_TIMEOUT_S = 120.0
 CANCEL_GRACE_S = 15.0
 WATCHDOG_EXTRA_S = 60.0
 RETRY_BEFORE_START_S = 5.0
+# With a run deadline (settings.run_deadline_s): time kept after an agent attempt for the run
+# record, verify, diagnosis and the verdict, and the least time worth starting an attempt with.
+DEADLINE_RESERVE_S = 25.0
+MIN_AGENT_S = 45.0
+MIN_FETCH_S = 25.0
 TERMINAL_STATUSES = {"COMPLETED", "FAILED", "CANCELLED"}
 # TinyFish refusals that another attempt cannot fix.
 HARD_STOP_CODES = {
@@ -78,6 +83,7 @@ class RunState:
     patches_applied: list[str] = field(default_factory=list)
     schema_entitled: bool = True
     active: tuple[Attempt, "_Trace"] | None = None
+    deadline: float | None = None  # event-loop time by which the run must have its verdict
 
 
 class _Trace:
@@ -154,6 +160,11 @@ class LadderController:
 
     # --- Config --------------------------------------------------------------------------------
 
+    @staticmethod
+    def _left(st: RunState) -> float | None:
+        """Seconds left before the run deadline, or None without one."""
+        return None if st.deadline is None else st.deadline - asyncio.get_running_loop().time()
+
     def build_config(self, st: RunState, attempt_no: int) -> AttemptConfig:
         run = st.run
         stealth = st.rung is Rung.agent_stealth
@@ -166,11 +177,18 @@ class LadderController:
             browser_profile=BrowserProfile.stealth if stealth else BrowserProfile.lite,
             proxy_enabled=stealth,
             proxy_country=self.settings.proxy_country if stealth else None,
-            max_duration_seconds=self.settings.agent_max_duration_s,
+            max_duration_seconds=self._agent_duration(st),
             from_fetch_cache=st.rung is Rung.fetch and st.from_fetch_cache,
             patches_applied=list(st.patches_applied),
             credit_limit=0 if st.rung is Rung.fetch else max(0, run.max_credits - run.credits_used),
         )
+
+    def _agent_duration(self, st: RunState) -> int:
+        left = self._left(st)
+        duration = self.settings.agent_max_duration_s
+        if left is not None:
+            duration = max(int(MIN_AGENT_S), min(duration, int(left - DEADLINE_RESERVE_S)))
+        return duration
 
     # --- Agent attempt -------------------------------------------------------------------------
 
@@ -270,21 +288,26 @@ class LadderController:
         tr = _Trace(st.em, st.run.id, cfg.attempt_no)
         st.active = (attempt, tr)
         progress, completed, cancelled = 0, False, False
+        watchdog = cfg.max_duration_seconds + WATCHDOG_EXTRA_S
+        left = self._left(st)
+        if left is not None:
+            watchdog = max(5.0, min(watchdog, left - DEADLINE_RESERVE_S + 10))
         try:
-            async with asyncio.timeout(cfg.max_duration_seconds + WATCHDOG_EXTRA_S):
+            async with asyncio.timeout(watchdog):
                 progress, completed, cancelled = await self._stream(attempt, tr, cfg)
         except TimeoutError:
-            await tr.note(
-                TraceKind.stream_error,
-                f"No result after {cfg.max_duration_seconds + WATCHDOG_EXTRA_S:.0f}s; cancelling",
-            )
+            await tr.note(TraceKind.stream_error, f"No result after {watchdog:.0f}s; cancelling")
             if attempt.tf_run_id:
                 await self._safe_cancel(attempt.tf_run_id)
 
         if not completed and attempt.outcome is not AttemptOutcome.error:
             if attempt.tf_run_id:
                 await tr.note(TraceKind.stream_error, "Stream dropped — polling the run status")
-                run_obj = await self._poll_until_terminal(attempt.tf_run_id, POLL_TIMEOUT_S)
+                left = self._left(st)
+                poll_s = (
+                    POLL_TIMEOUT_S if left is None else max(0.0, min(POLL_TIMEOUT_S, left - 10))
+                )
+                run_obj = await self._poll_until_terminal(attempt.tf_run_id, poll_s)
                 if run_obj is not None:
                     _apply_complete(attempt, run_obj)
                     completed = True
@@ -527,6 +550,8 @@ class LadderController:
 
     async def _climb(self, st: RunState) -> None:
         run, em, settings = st.run, st.em, self.settings
+        if settings.run_deadline_s is not None:
+            st.deadline = asyncio.get_running_loop().time() + settings.run_deadline_s
         run.status = RunStatus.running
         await db.save_run(run)
         await em.budget(0, run.max_attempts, 0, run.max_credits)
@@ -555,6 +580,19 @@ class LadderController:
                         None,
                     )
                     return
+
+            left = self._left(st)
+            need = MIN_FETCH_S if st.rung is Rung.fetch else MIN_AGENT_S + DEADLINE_RESERVE_S
+            if left is not None and left < need:
+                await self._verdict(
+                    st,
+                    RunStatus.budget_exhausted,
+                    f"Time budget spent: {max(0.0, left):.0f}s left of this run's "
+                    f"{settings.run_deadline_s:.0f}s limit, and the next attempt needs about "
+                    f"{need:.0f}s.",
+                    None,
+                )
+                return
 
             cfg = self.build_config(st, attempt_no)
             await em.attempt_started(cfg)

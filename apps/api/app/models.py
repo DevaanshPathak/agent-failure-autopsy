@@ -521,6 +521,11 @@ class Health(_Model):
     claude_spent_usd: float
     claude_budget_usd: float
     claude_calls: int
+    claude_ready: bool = False
+    # Live runs across every visitor (the public demo's shared TinyFish budget, app/guard.py).
+    live_run_active: bool = False
+    live_credits_used: int = 0
+    live_credit_cap: int | None = None
 
 
 class StatsRow(_Model):

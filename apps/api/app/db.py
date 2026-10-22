@@ -1,8 +1,10 @@
 """Persistence: SQLite by default, Postgres via DATABASE_URL (SQLAlchemy async Core).
 
 No migrations: tables are created on startup. Delete the SQLite file when the schema changes.
+Provider URLs (`postgres://…?sslmode=require`, as Neon gives them) are normalized for asyncpg.
 """
 
+from collections.abc import Iterable
 from datetime import UTC, datetime
 from typing import Any
 
@@ -16,10 +18,12 @@ from sqlalchemy import (
     String,
     Table,
     UniqueConstraint,
+    case,
     func,
     select,
     text,
 )
+from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from app.config import get_settings
@@ -81,12 +85,31 @@ llm_usage = Table(
 _engine: AsyncEngine | None = None
 
 
+def engine_args(url: str) -> tuple[str, dict[str, Any]]:
+    """SQLAlchemy URL and engine options for a database URL as a provider hands it out."""
+    if url.startswith("sqlite"):
+        return url, {"connect_args": {"timeout": 15}}
+    parsed = make_url(url)
+    if parsed.drivername in ("postgres", "postgresql"):
+        parsed = parsed.set(drivername="postgresql+asyncpg")
+    query = dict(parsed.query)
+    sslmode = query.pop("sslmode", None)
+    query.pop("channel_binding", None)  # libpq-only; asyncpg rejects unknown parameters
+    parsed = parsed.set(query=query)
+    connect_args = {"ssl": "require"} if sslmode and sslmode != "disable" else {}
+    # Serverless instances sleep between requests: check pooled connections before use.
+    options = {"connect_args": connect_args, "pool_pre_ping": True, "pool_recycle": 240}
+    return parsed.render_as_string(hide_password=False), options
+
+
 def configure(database_url: str | None = None) -> AsyncEngine:
     """(Re)create the engine. Tests call this with a temporary database URL."""
     global _engine
-    url = database_url or get_settings().database_url
-    connect_args = {"timeout": 15} if url.startswith("sqlite") else {}
-    _engine = create_async_engine(url, connect_args=connect_args)
+    settings = get_settings()
+    url, options = engine_args(
+        database_url or settings.database_url_unpooled or settings.database_url
+    )
+    _engine = create_async_engine(url, **options)
     return _engine
 
 
@@ -134,14 +157,63 @@ async def insert_run(run: Run) -> None:
 
 
 async def save_run(run: Run) -> None:
+    row: dict[str, Any] = _run_row(run)
+    if run.status.value in ("queued", "running"):
+        # Progress saves must not erase a pending cancel request (`cancelling`, request_cancel).
+        row["status"] = case((runs.c.status == "cancelling", "cancelling"), else_=row["status"])
     async with get_engine().begin() as conn:
-        await conn.execute(runs.update().where(runs.c.id == run.id).values(**_run_row(run)))
+        await conn.execute(runs.update().where(runs.c.id == run.id).values(**row))
 
 
 async def get_run(run_id: str) -> Run | None:
     async with get_engine().connect() as conn:
         row = (await conn.execute(select(runs.c.run_json).where(runs.c.id == run_id))).first()
     return Run.model_validate(row.run_json) if row else None
+
+
+async def claim_run(run_id: str, from_statuses: Iterable[str] = ("queued",)) -> bool:
+    """Atomically move a run's status column to `running`. False when someone else got it."""
+    query = (
+        runs.update()
+        .where(runs.c.id == run_id, runs.c.status.in_(list(from_statuses)))
+        .values(status="running")
+    )
+    async with get_engine().begin() as conn:
+        return (await conn.execute(query)).rowcount == 1
+
+
+async def request_cancel(run_id: str) -> bool:
+    """Flag a running run for cancellation by whichever process is executing it."""
+    query = (
+        runs.update()
+        .where(runs.c.id == run_id, runs.c.status.in_(["queued", "running"]))
+        .values(status="cancelling")
+    )
+    async with get_engine().begin() as conn:
+        return (await conn.execute(query)).rowcount == 1
+
+
+async def get_status(run_id: str) -> str | None:
+    """The status column only (cheap; `cancelling` is visible here, never in run_json)."""
+    async with get_engine().connect() as conn:
+        return (await conn.execute(select(runs.c.status).where(runs.c.id == run_id))).scalar()
+
+
+async def live_usage(active_since: datetime, hour_since: datetime) -> tuple[int, int, int]:
+    """(live runs still queued/running, live runs started in the last hour, credits ever used)."""
+    live = runs.c.mode == "live"
+    active = select(func.count(runs.c.id)).where(
+        live,
+        runs.c.status.in_(["queued", "running", "cancelling"]),
+        runs.c.created_at >= active_since,
+    )
+    recent = select(func.count(runs.c.id)).where(live, runs.c.created_at >= hour_since)
+    credits = select(func.coalesce(func.sum(runs.c.credits_used), 0)).where(live)
+    async with get_engine().connect() as conn:
+        n_active = (await conn.execute(active)).scalar() or 0
+        n_recent = (await conn.execute(recent)).scalar() or 0
+        used = (await conn.execute(credits)).scalar() or 0
+    return int(n_active), int(n_recent), int(used)
 
 
 async def list_runs(limit: int = 200) -> list[Run]:

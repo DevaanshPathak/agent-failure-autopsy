@@ -713,6 +713,10 @@
         "claude_model": {
           "type": "string"
         },
+        "claude_ready": {
+          "default": false,
+          "type": "boolean"
+        },
         "claude_spent_usd": {
           "type": "number"
         },
@@ -722,6 +726,25 @@
             "error"
           ],
           "type": "string"
+        },
+        "live_credit_cap": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "live_credits_used": {
+          "default": 0,
+          "type": "integer"
+        },
+        "live_run_active": {
+          "default": false,
+          "type": "boolean"
         },
         "mode": {
           "$ref": "#/definitions/RunMode"
@@ -748,7 +771,11 @@
         "claude_model",
         "claude_spent_usd",
         "claude_budget_usd",
-        "claude_calls"
+        "claude_calls",
+        "claude_ready",
+        "live_run_active",
+        "live_credits_used",
+        "live_credit_cap"
       ],
       "title": "Health",
       "type": "object"

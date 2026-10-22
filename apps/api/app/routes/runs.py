@@ -4,7 +4,7 @@ import asyncio
 import json
 import re
 from collections.abc import AsyncIterator
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Annotated, Any
 from uuid import uuid4
 
@@ -15,6 +15,7 @@ from sse_starlette import EventSourceResponse, ServerSentEvent
 
 from app import db
 from app.events import Emitter, utcnow
+from app.guard import LiveRunRefused, allow_live_run
 from app.models import (
     VERDICT_STATUSES,
     Run,
@@ -36,6 +37,13 @@ from app.tinyfish.client import TinyFishError
 router = APIRouter(tags=["runs"])
 # How long a stream of an already-finished run waits for a verdict that is still in flight.
 FINISHED_RUN_GRACE_S = 3.0
+# How often a stream with no new local events checks the database (events written by another
+# process, a cancel request, a run that was interrupted).
+FOLLOW_POLL_S = 1.0
+INTERRUPTED = (
+    "Interrupted: the API stopped before this run finished (it restarted, or the host's "
+    "request time limit was reached)."
+)
 ServicesDep = Annotated[Services, Depends(get_services)]
 
 
@@ -50,6 +58,51 @@ async def list_sites(svc: ServicesDep) -> list[SiteInfo]:
 async def _run_live(svc: Services, run_id: str) -> None:
     async with svc.live_semaphore:
         await svc.controller.execute(run_id)
+
+
+def _start(svc: Services, run: Run) -> None:
+    if run.mode is RunMode.replay:
+        settings = svc.settings
+        work = replay_run(run, svc.bus, settings.fixtures_dir, settings.replay_speed)
+    else:
+        work = _run_live(svc, run.id)
+    svc.track(run.id, asyncio.create_task(work, name=f"run-{run.id}"))
+
+
+async def _close_run(svc: Services, run: Run, status: RunStatus, reason: str) -> None:
+    """Give a run that nothing is executing any more an honest final status and verdict."""
+    run.status = status
+    run.verdict_reason = reason
+    run.finished_at = utcnow()
+    await db.save_run(run)
+    await Emitter(run.id, svc.bus).verdict(
+        status,
+        reason,
+        final_result=None,
+        attempts_used=len(run.attempts),
+        credits_used=run.credits_used,
+        baseline_credits_estimate=run.baseline_credits_estimate,
+    )
+
+
+def _is_orphan(svc: Services, run: Run) -> bool:
+    """Unfinished, not executing here, and older than any process could still be running it."""
+    age = utcnow() - run.created_at
+    return (
+        run.status not in VERDICT_STATUSES
+        and run.id not in svc.run_tasks
+        and age > timedelta(seconds=svc.settings.stale_run_s)
+    )
+
+
+async def _reap_if_orphan(svc: Services, run: Run, column_status: str | None) -> bool:
+    if not _is_orphan(svc, run):
+        return False
+    if column_status == "cancelling":
+        await _close_run(svc, run, RunStatus.cancelled, "Cancelled by user.")
+    else:
+        await _close_run(svc, run, RunStatus.error, INTERRUPTED)
+    return True
 
 
 @router.post("/runs", status_code=201, response_model=RunCreated)
@@ -75,6 +128,14 @@ async def create_run(req: RunRequest, svc: ServicesDep) -> RunCreated:
         raise HTTPException(status_code=503, detail="TINYFISH_API_KEY is not set — use replay mode")
     elif svc.live_semaphore.locked():
         raise HTTPException(status_code=429, detail="another live run is in progress")
+    max_attempts = req.max_attempts or settings.max_attempts
+    max_credits = req.max_credits if req.max_credits is not None else settings.max_credits
+    if mode is RunMode.live:
+        try:
+            allowance = await allow_live_run(settings, req)
+        except LiveRunRefused as e:
+            raise HTTPException(status_code=e.status_code, detail=e.detail) from e
+        max_attempts, max_credits = allowance.max_attempts, allowance.max_credits
 
     run = Run(
         id=uuid4().hex[:12],
@@ -82,23 +143,22 @@ async def create_run(req: RunRequest, svc: ServicesDep) -> RunCreated:
         mode=mode,
         request=req,
         status=RunStatus.queued,
-        max_attempts=req.max_attempts or settings.max_attempts,
-        max_credits=req.max_credits if req.max_credits is not None else settings.max_credits,
+        max_attempts=max_attempts,
+        max_credits=max_credits,
     )
     await db.insert_run(run)
-    if mode is RunMode.replay:
-        work = replay_run(run, svc.bus, settings.fixtures_dir, settings.replay_speed)
-    else:
-        work = _run_live(svc, run.id)
-    svc.track(run.id, asyncio.create_task(work, name=f"run-{run.id}"))
+    if not settings.run_in_stream:
+        _start(svc, run)
     return RunCreated(run_id=run.id, mode=mode, stream_url=f"/runs/{run.id}/stream")
 
 
 @router.get("/runs/{run_id}", response_model=Run)
-async def get_run(run_id: str) -> Run:
+async def get_run(run_id: str, svc: ServicesDep) -> Run:
     run = await db.get_run(run_id)
     if run is None:
         raise HTTPException(status_code=404, detail="run not found")
+    if await _reap_if_orphan(svc, run, await db.get_status(run_id)):
+        return await db.get_run(run_id) or run
     return run
 
 
@@ -124,9 +184,11 @@ async def stream_run(
     """Backfill stored events after `after` / `Last-Event-ID`, then follow live until the verdict.
 
     The queue is subscribed before the backfill read, so nothing published in between is lost;
-    anything at or below the last sent seq is skipped.
+    anything at or below the last sent seq is skipped. With `run_in_stream`, the first stream of a
+    queued run executes it. Events written by another process are picked up from the database.
     """
-    if await db.get_run(run_id) is None:
+    run = await db.get_run(run_id)
+    if run is None:
         raise HTTPException(status_code=404, detail="run not found")
     start = after if after is not None else _parse_seq(last_event_id)
     queue = svc.bus.subscribe(run_id)
@@ -139,25 +201,42 @@ async def stream_run(
                 yield _sse(payload)
                 if payload["type"] == "verdict":
                     return
+            if svc.settings.run_in_stream and run.status is RunStatus.queued:
+                if await db.claim_run(run_id):
+                    _start(svc, run)  # runs inside this request: serverless has no background
+            loop = asyncio.get_running_loop()
             # A finished run's final status is saved just before its verdict is published, so a
             # final status doesn't mean everything is stored yet: wait (briefly) for the verdict.
-            current = await db.get_run(run_id)
-            finished = current is not None and current.status in VERDICT_STATUSES
+            finished_at: float | None = None
+            next_check = 0.0
             while True:
                 try:
-                    timeout = FINISHED_RUN_GRACE_S if finished else None
-                    payload = await asyncio.wait_for(queue.get(), timeout)
+                    batch = [await asyncio.wait_for(queue.get(), FOLLOW_POLL_S)]
                 except TimeoutError:
-                    # No verdict will come (e.g. the API restarted mid-run): send what is stored.
-                    for payload in await db.list_ui_events(run_id, last):
-                        yield _sse(payload)
-                    return
-                if payload["seq"] <= last:
+                    batch = await db.list_ui_events(run_id, last)
+                for payload in batch:
+                    if payload["seq"] <= last:
+                        continue
+                    last = payload["seq"]
+                    yield _sse(payload)
+                    if payload["type"] == "verdict":
+                        return
+                if loop.time() < next_check:
                     continue
-                last = payload["seq"]
-                yield _sse(payload)
-                if payload["type"] == "verdict":
+                next_check = loop.time() + FOLLOW_POLL_S
+                status = await db.get_status(run_id)
+                if status is None:
                     return
+                if status in VERDICT_STATUSES:
+                    finished_at = finished_at or loop.time()
+                    if loop.time() - finished_at >= FINISHED_RUN_GRACE_S:
+                        return  # no verdict will come; everything stored has been sent
+                elif status == "cancelling" and run_id in svc.run_tasks:
+                    svc.run_tasks[run_id].cancel()  # a cancel request that reached another process
+                elif run_id not in svc.run_tasks:
+                    current = await db.get_run(run_id)
+                    if current is not None:
+                        await _reap_if_orphan(svc, current, status)
         finally:
             svc.bus.unsubscribe(run_id, queue)
 
@@ -251,19 +330,11 @@ async def cancel_run(run_id: str, svc: ServicesDep) -> dict[str, str]:
     task = svc.run_tasks.get(run_id)
     if task is not None:
         task.cancel()
+    elif svc.settings.run_in_stream and not _is_orphan(svc, run):
+        # Possibly executing in another instance: flag it, and that instance's stream cancels it.
+        await db.request_cancel(run_id)
     else:  # no task (e.g. the API restarted mid-run): close the run record honestly
-        run.status = RunStatus.cancelled
-        run.verdict_reason = "Cancelled by user."
-        run.finished_at = utcnow()
-        await db.save_run(run)
-        await Emitter(run_id, svc.bus).verdict(
-            RunStatus.cancelled,
-            "Cancelled by user.",
-            final_result=None,
-            attempts_used=len(run.attempts),
-            credits_used=run.credits_used,
-            baseline_credits_estimate=run.baseline_credits_estimate,
-        )
+        await _close_run(svc, run, RunStatus.cancelled, "Cancelled by user.")
     return {"run_id": run_id, "status": "cancelling"}
 
 
