@@ -35,7 +35,13 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test -- --run
+      - name: Bundled demo data matches fixtures/
+        run: npm run demo:check
       - run: npm run build
+      - name: Static demo build (what Vercel deploys)
+        run: npm run build
+        env:
+          NEXT_PUBLIC_DEMO_MODE: "true"
 
   contracts:
     runs-on: ubuntu-latest
