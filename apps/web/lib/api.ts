@@ -5,6 +5,12 @@ export const API_BASE = (process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8
   "",
 );
 
+/**
+ * Static demo deployment: no API, recorded runs are played in the browser from /demo/.
+ * Decided at build time in next.config.ts (NEXT_PUBLIC_DEMO_MODE).
+ */
+export const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+
 /** A non-2xx API response. `detail` is FastAPI's `detail` field (a string or a list of issues). */
 export class ApiError extends Error {
   readonly status: number;
