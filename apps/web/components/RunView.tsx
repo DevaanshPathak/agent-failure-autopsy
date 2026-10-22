@@ -21,10 +21,23 @@ interface Props {
   rawLog?: boolean;
   /** Live run with a recorded trace: cancel it and open the replay (shown until the verdict). */
   onSwitchToReplay?: () => Promise<void>;
+  /** Replaces the mode badge text (e.g. for the hand-written illustrative sample). */
+  badgeLabel?: string;
+  /** A visible note under the badge (e.g. "Hand-written example … not a live TinyFish run"). */
+  note?: string;
+  /** Screenshot source for BrowserPanel (bundled files in the static demo). */
+  screenshotSrc?: (attemptNo: number) => string | null;
 }
 
-function ModeBadge({ mode }: { mode: RunMode | null }) {
+function ModeBadge({ mode, label }: { mode: RunMode | null; label?: string }) {
   if (!mode) return null;
+  if (label) {
+    return (
+      <span className="rounded-full bg-violet-500/15 px-2.5 py-0.5 text-sm font-semibold text-violet-200 ring-1 ring-violet-400/40">
+        {label}
+      </span>
+    );
+  }
   return mode === "live" ? (
     <span className="rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-sm font-semibold text-emerald-300 ring-1 ring-emerald-400/40">
       LIVE
@@ -43,6 +56,9 @@ export default function RunView({
   header,
   rawLog = false,
   onSwitchToReplay,
+  badgeLabel,
+  note,
+  screenshotSrc,
 }: Props) {
   const { state, events, connected, error } = useRunStream(streamUrl);
   const [switching, setSwitching] = useState(false);
@@ -67,7 +83,7 @@ export default function RunView({
       <div className="flex flex-wrap items-start justify-between gap-4 rounded-lg border border-slate-800 bg-slate-900/50 p-4">
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex flex-wrap items-center gap-3">
-            <ModeBadge mode={mode} />
+            <ModeBadge mode={mode} label={badgeLabel} />
             {!connected && !state.done && (
               <span className="rounded-full bg-slate-800 px-2.5 py-0.5 text-sm text-slate-300">
                 {state.lastSeq ? "Reconnecting…" : "Connecting…"}
@@ -75,6 +91,11 @@ export default function RunView({
             )}
             {error && <span className="text-sm text-rose-300">{error}</span>}
           </div>
+          {note && (
+            <p className="rounded border border-violet-400/40 bg-violet-950/40 px-2 py-1 text-sm text-violet-100">
+              {note}
+            </p>
+          )}
           <p className="truncate font-mono text-sm text-slate-400" title={shown?.url}>
             {shown?.url ?? "…"}
           </p>
@@ -100,7 +121,13 @@ export default function RunView({
 
       <div className="grid gap-4 lg:grid-cols-12">
         <div className="min-w-0 space-y-4 lg:col-span-7">
-          <BrowserPanel liveView={state.liveView} attempt={current} mode={mode} runId={runId} />
+          <BrowserPanel
+            liveView={state.liveView}
+            attempt={current}
+            mode={mode}
+            runId={runId}
+            screenshotSrc={screenshotSrc}
+          />
           {state.done && <VerdictCard verdict={state.verdict} />}
         </div>
         <div className="min-w-0 lg:col-span-5">

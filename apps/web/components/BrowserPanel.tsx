@@ -11,6 +11,11 @@ interface Props {
   attempt: AttemptView | null;
   mode: RunMode | null;
   runId: string;
+  /**
+   * Where the failing-step screenshot of an attempt lives (null = there is none, show the
+   * overlay without a request). Defaults to the API endpoint.
+   */
+  screenshotSrc?: (attemptNo: number) => string | null;
 }
 
 /** "Step k — label" for the attempt's failing step, else the verifier summary. */
@@ -48,11 +53,11 @@ function Message({ title, detail, pulse }: { title: string; detail?: string; pul
   );
 }
 
-/** The failing step's screenshot (via our API); falls back to an overlay when there is none. */
-function FailingShot({ runId, attempt }: { runId: string; attempt: AttemptView }) {
+/** The failing step's screenshot; falls back to an overlay when there is none. */
+function FailingShot({ src, attempt }: { src: string | null; attempt: AttemptView }) {
   const [broken, setBroken] = useState(false);
   const caption = failingCaption(attempt);
-  if (broken) {
+  if (broken || !src) {
     return (
       <Frame>
         <Message title="Live view ended" detail={caption} />
@@ -65,7 +70,7 @@ function FailingShot({ runId, attempt }: { runId: string; attempt: AttemptView }
         {/* A dynamic API image: next/image would need remotePatterns for no benefit here. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={screenshotUrl(runId, attempt.attemptNo)}
+          src={src}
           alt={`Browser at the failing step: ${caption}`}
           className="h-full w-full object-contain"
           onError={() => setBroken(true)}
@@ -78,7 +83,7 @@ function FailingShot({ runId, attempt }: { runId: string; attempt: AttemptView }
   );
 }
 
-export default function BrowserPanel({ liveView, attempt, mode, runId }: Props) {
+export default function BrowserPanel({ liveView, attempt, mode, runId, screenshotSrc }: Props) {
   if (!attempt) {
     return (
       <Frame>
@@ -102,7 +107,10 @@ export default function BrowserPanel({ liveView, attempt, mode, runId }: Props) 
 
   // After a diagnosed attempt ends, show where it failed (live and replay alike).
   if (attempt.diagnosis && !view?.active) {
-    return <FailingShot key={`${runId}:${attempt.attemptNo}`} runId={runId} attempt={attempt} />;
+    const src = screenshotSrc
+      ? screenshotSrc(attempt.attemptNo)
+      : screenshotUrl(runId, attempt.attemptNo);
+    return <FailingShot key={`${runId}:${attempt.attemptNo}`} src={src} attempt={attempt} />;
   }
 
   if (!view) {
