@@ -45,6 +45,6 @@ SQLite is the default database (`apps/api/autopsy.db`, gitignored). No migration
 
 ## Troubleshooting
 
-- **Ports 3000/8000 in use:** stop the other process, or run `uv run uvicorn app.main:app --port 8001` from `apps/api` and set `NEXT_PUBLIC_API_BASE=http://localhost:8001` in `apps/web/.env.local`.
+- **Ports 3000/8000 in use:** stop the other process, or run `uv run uvicorn --factory app.main:create_app --port 8001` from `apps/api` and set `NEXT_PUBLIC_API_BASE=http://localhost:8001` in `apps/web/.env.local`.
 - **`pytest` fails with "Access is denied" on its temp folder (Windows):** delete `%TEMP%\pytest-of-<you>`, or run with `PYTEST_DEBUG_TEMPROOT` pointing at a folder you own.
 - **CI "contracts" job fails:** someone changed `models.py` without running `make types`. Run it and commit the generated files.

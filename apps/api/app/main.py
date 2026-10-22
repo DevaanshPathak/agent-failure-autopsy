@@ -1,6 +1,7 @@
 """FastAPI app: run it as a single uvicorn worker (runs and the event bus live in memory)."""
 
 import asyncio
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
@@ -19,6 +20,8 @@ from app.routes import dev, runs
 from app.services import Services
 from app.tinyfish.client import TinyFishClient
 
+log = logging.getLogger(__name__)
+
 _UNSET: Any = object()
 
 
@@ -36,11 +39,14 @@ def build_services(settings: Settings, *, tinyfish: Any = _UNSET, claude: Any = 
         )
     budget = ClaudeBudget(settings.anthropic_budget_usd)
     if claude is _UNSET:
-        claude = (
-            ClaudeClient(settings.anthropic_api_key, settings.anthropic_model, budget=budget)
-            if settings.anthropic_api_key
-            else None
-        )
+        claude = None
+        if settings.anthropic_api_key:
+            try:
+                claude = ClaudeClient(
+                    settings.anthropic_api_key, settings.anthropic_model, budget=budget
+                )
+            except Exception:  # e.g. the SDK can't read its config dir; run without Claude
+                log.exception("could not create the Claude client; continuing without Claude")
     bus = RunEventBus()
     return Services(
         settings=settings,
@@ -101,4 +107,5 @@ def create_app(
     return app
 
 
-app = create_app()
+# No module-level app: importing this module must not build real API clients from .env.
+# Run with: uvicorn --factory app.main:create_app

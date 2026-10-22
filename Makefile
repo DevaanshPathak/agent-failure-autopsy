@@ -8,7 +8,7 @@ setup:
 	@[ -f .env ] || { cp .env.example .env && echo "Created .env from .env.example: add your API keys"; }
 
 api:
-	cd apps/api && uv run uvicorn app.main:app --reload --port 8000
+	cd apps/api && uv run uvicorn --factory app.main:create_app --reload --port 8000
 
 web:
 	cd apps/web && npm run dev
