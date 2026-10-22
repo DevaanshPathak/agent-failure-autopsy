@@ -36,3 +36,7 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "ASYNC"]
+
+[tool.vercel]
+# Vercel deploy (docs/deploy.md): the module-level app in vercel_app.py.
+entrypoint = "vercel_app:app"
