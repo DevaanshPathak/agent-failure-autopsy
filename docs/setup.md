@@ -39,6 +39,8 @@ Useful URLs while `make dev` runs: http://localhost:8000/health (API status: mod
 
 The API reads the repo-root `.env`; real environment variables win over it. `.env.example` lists the main variables (keys, model, `DATABASE_URL`, `MODE`, budgets, proxy country). Everything else has a default in `apps/api/app/config.py`. The web app talks to `http://localhost:8000` unless `NEXT_PUBLIC_API_BASE` is set in `apps/web/.env.local`.
 
+**Claude spend is capped.** `ANTHROPIC_BUDGET_USD` (default 4.00) limits the total Claude spend, costed from real token usage and stored in the database, so it survives restarts. `curl localhost:8000/health` shows `claude_spent_usd`, `claude_budget_usd` and `claude_calls`. At the cap, Claude is no longer called: Rung 1 extraction is skipped and diagnosis uses the rules. Tests, replays and `/dev` never call Claude.
+
 SQLite is the default database (`apps/api/autopsy.db`, gitignored). No migrations: delete the file when the schema changes.
 
 ## Troubleshooting
