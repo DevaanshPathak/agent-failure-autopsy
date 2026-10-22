@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
+
+import { DEMO_MODE } from "@/lib/api";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -29,6 +31,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
       <body className="flex min-h-full flex-col">
+        {DEMO_MODE && (
+          <div className="border-b border-amber-500/30 bg-amber-950/50 px-6 py-1.5 text-center text-sm text-amber-100">
+            Demo deployment · replays bundled runs · live runs need the API
+          </div>
+        )}
         <header className="border-b border-slate-800 bg-slate-950/80">
           <div className="mx-auto flex w-full max-w-[1600px] flex-wrap items-center justify-between gap-x-6 gap-y-2 px-6 py-4">
             <div>
