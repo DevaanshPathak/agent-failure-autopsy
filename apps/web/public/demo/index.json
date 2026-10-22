@@ -1,0 +1,25 @@
+{
+  "runs": [
+    {
+      "attempts_used": 3,
+      "baseline_credits_estimate": 15,
+      "classes": [
+        "needs_interaction",
+        "popup_overlay"
+      ],
+      "credits_used": 9,
+      "events": 36,
+      "goal": "List the first 3 products on the page with their name and price.",
+      "has_screenshots": false,
+      "id": "sample",
+      "kind": "sample",
+      "path": "/demo/runs/sample.jsonl",
+      "recorded_at": "2026-11-01T11:00:00.000Z",
+      "screenshot_attempts": [],
+      "status": "verified",
+      "title": "Illustrative sample: cookie popup on a shop page",
+      "url": "https://shop.example.com/products"
+    }
+  ],
+  "version": 1
+}
