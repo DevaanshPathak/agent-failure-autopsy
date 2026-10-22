@@ -12,6 +12,7 @@ from app import __version__, db
 from app.config import Settings, get_settings
 from app.events import RunEventBus
 from app.ladder.controller import LadderController
+from app.llm.budget import ClaudeBudget
 from app.llm.claude import ClaudeClient
 from app.models import Health, RunMode
 from app.routes import dev, runs
@@ -33,9 +34,10 @@ def build_services(settings: Settings, *, tinyfish: Any = _UNSET, claude: Any = 
             if settings.tinyfish_api_key
             else None
         )
+    budget = ClaudeBudget(settings.anthropic_budget_usd)
     if claude is _UNSET:
         claude = (
-            ClaudeClient(settings.anthropic_api_key, settings.anthropic_model)
+            ClaudeClient(settings.anthropic_api_key, settings.anthropic_model, budget=budget)
             if settings.anthropic_api_key
             else None
         )
@@ -47,6 +49,7 @@ def build_services(settings: Settings, *, tinyfish: Any = _UNSET, claude: Any = 
         bus=bus,
         controller=LadderController(settings, tinyfish, claude, bus),
         live_semaphore=asyncio.Semaphore(settings.max_concurrent_live_runs),
+        claude_budget=budget,
     )
 
 
@@ -80,6 +83,8 @@ def create_app(
 
     @app.get("/health", response_model=Health, tags=["meta"])
     async def health() -> Health:
+        budget_state = services.claude_budget
+        await budget_state.ensure_loaded()
         return Health(
             status="ok",
             mode=RunMode(settings.mode),
@@ -87,6 +92,10 @@ def create_app(
             anthropic_key=bool(settings.anthropic_api_key),
             db="ok" if await db.ping() else "error",
             version=__version__,
+            claude_model=settings.anthropic_model,
+            claude_spent_usd=round(budget_state.spent_usd, 4),
+            claude_budget_usd=budget_state.cap_usd,
+            claude_calls=budget_state.calls,
         )
 
     return app

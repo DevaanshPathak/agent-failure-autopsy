@@ -704,6 +704,18 @@
         "anthropic_key": {
           "type": "boolean"
         },
+        "claude_budget_usd": {
+          "type": "number"
+        },
+        "claude_calls": {
+          "type": "integer"
+        },
+        "claude_model": {
+          "type": "string"
+        },
+        "claude_spent_usd": {
+          "type": "number"
+        },
         "db": {
           "enum": [
             "ok",
@@ -732,7 +744,11 @@
         "tinyfish_key",
         "anthropic_key",
         "db",
-        "version"
+        "version",
+        "claude_model",
+        "claude_spent_usd",
+        "claude_budget_usd",
+        "claude_calls"
       ],
       "title": "Health",
       "type": "object"

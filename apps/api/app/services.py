@@ -9,6 +9,7 @@ from fastapi import Request
 from app.config import Settings
 from app.events import RunEventBus
 from app.ladder.controller import LadderController
+from app.llm.budget import ClaudeBudget
 from app.tinyfish.client import TinyFishClient
 
 
@@ -20,6 +21,7 @@ class Services:
     bus: RunEventBus
     controller: LadderController
     live_semaphore: asyncio.Semaphore
+    claude_budget: ClaudeBudget
     tasks: set[asyncio.Task[None]] = field(default_factory=set)
     run_tasks: dict[str, asyncio.Task[None]] = field(default_factory=dict)
 

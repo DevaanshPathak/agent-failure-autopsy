@@ -361,6 +361,10 @@ export interface FetchExtraction {
  */
 export interface Health {
   anthropic_key: boolean;
+  claude_budget_usd: number;
+  claude_calls: number;
+  claude_model: string;
+  claude_spent_usd: number;
   db: "ok" | "error";
   mode: RunMode;
   status: "ok";

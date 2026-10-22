@@ -17,9 +17,10 @@ from app.models import (
     VerifyResult,
 )
 
-RESULT_MAX_CHARS = 4000
-FETCH_EXCERPT_CHARS = 6000
-TRACE_TAIL = 40
+# Kept small on purpose: the Anthropic budget is tight and these are enough to classify.
+RESULT_MAX_CHARS = 2000
+FETCH_EXCERPT_CHARS = 2000
+TRACE_TAIL = 25
 
 DIAGNOSE_SYSTEM = """\
 You diagnose why one attempt by a TinyFish web agent failed its goal. The agent's own status is \
@@ -140,7 +141,8 @@ async def diagnose_with_llm(
         system=DIAGNOSE_SYSTEM,
         user=user,
         output_model=LlmDiagnosis,
+        purpose="diagnose",
         effort="low",
-        max_tokens=4000,
+        max_tokens=2000,
         timeout_s=45.0,
     )

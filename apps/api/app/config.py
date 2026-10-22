@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     tinyfish_api_key: str | None = None
     anthropic_api_key: str | None = None
     anthropic_model: str = "claude-opus-5-5"
+    # Hard cap on total Claude spend (USD), tracked from real token usage across restarts.
+    anthropic_budget_usd: float = 4.0
     database_url: str = "sqlite+aiosqlite:///./autopsy.db"
     mode: Literal["live", "replay"] = "live"
     max_attempts: int = 4
@@ -32,7 +34,7 @@ class Settings(BaseSettings):
     agent_max_duration_s: int = 150
     agent_min_credits: int = 3
     rules_confidence_threshold: float = 0.8
-    fetch_text_max_chars: int = 60000
+    fetch_text_max_chars: int = 12000
     replay_speed: float = 1.0
     baseline_default_steps: int = 15
     max_concurrent_live_runs: int = 1

@@ -1,10 +1,11 @@
 """Fetch returns page text, not an answer (ADR-008), so Claude extracts the answer from it."""
 
 import json
+import re
 from typing import Any
 
 from app.llm.claude import ClaudeClient
-from app.models import ExpectedCheck, FetchExtraction
+from app.models import ExpectedCheck, ExpectedCheckType, FetchExtraction
 
 EXTRACT_SYSTEM = (
     "You extract data from the text of one web page for a stated goal. Use only the page text "
@@ -15,6 +16,17 @@ EXTRACT_SYSTEM = (
     "human would have to do in a browser to reveal it. If found=true, put a single JSON object in "
     "result_json that answers the goal."
 )
+
+
+def expected_absent(expected: ExpectedCheck | None, text: str) -> bool:
+    """True when a contains/regex check cannot possibly match anything taken from `text`."""
+    if expected is None or not expected.value:
+        return False
+    if expected.type is ExpectedCheckType.contains:
+        return expected.value.lower() not in text.lower()
+    if expected.type is ExpectedCheckType.regex:
+        return re.search(expected.value, text, re.I) is None
+    return False
 
 
 def build_user_message(
@@ -56,12 +68,30 @@ async def extract_from_fetch(
     max_chars: int,
 ) -> tuple[dict[str, Any] | None, FetchExtraction | None, str | None]:
     """Return (result, extraction, error). A result is only returned when found=true and
-    result_json parses to a JSON object."""
+    result_json parses to a JSON object.
+
+    Free shortcut: if the expected check is `contains`/`regex` and the page text doesn't contain
+    it at all, no extraction could pass the check, so Claude is not called.
+    """
+    text = page.get("text") if isinstance(page.get("text"), str) else ""
+    if expected_absent(expected, text):
+        assert expected is not None
+        missing = FetchExtraction(
+            found=False,
+            result_json="",
+            missing=[f"expected '{expected.value}'"],
+            interaction_hint="",
+        )
+        return None, missing, None
     user = build_user_message(
         goal=goal, output_schema=output_schema, expected=expected, page=page, max_chars=max_chars
     )
     outcome = await claude.parse(
-        system=EXTRACT_SYSTEM, user=user, output_model=FetchExtraction, effort="low"
+        system=EXTRACT_SYSTEM,
+        user=user,
+        output_model=FetchExtraction,
+        purpose="extract",
+        effort="low",
     )
     extraction = outcome.parsed
     if extraction is None:

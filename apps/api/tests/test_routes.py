@@ -58,7 +58,12 @@ async def test_health_reports_status_without_keys(temp_db):
     async with await _client(temp_db) as client:
         body = (await client.get("/health")).json()
     assert body["status"] == "ok" and body["db"] == "ok"
-    assert set(body) == {"status", "mode", "tinyfish_key", "anthropic_key", "db", "version"}
+    assert set(body) >= {"status", "mode", "tinyfish_key", "anthropic_key", "db", "version"}
+    assert (body["claude_spent_usd"], body["claude_calls"], body["claude_budget_usd"]) == (
+        0.0,
+        0,
+        4.0,
+    )
 
 
 async def test_sample_stream_sends_every_event_with_its_seq_as_id(temp_db):

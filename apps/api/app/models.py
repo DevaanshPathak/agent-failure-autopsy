@@ -517,6 +517,10 @@ class Health(_Model):
     anthropic_key: bool
     db: Literal["ok", "error"]
     version: str
+    claude_model: str
+    claude_spent_usd: float
+    claude_budget_usd: float
+    claude_calls: int
 
 
 class StatsRow(_Model):

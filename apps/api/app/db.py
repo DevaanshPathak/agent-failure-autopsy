@@ -3,13 +3,14 @@
 No migrations: tables are created on startup. Delete the SQLite file when the schema changes.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import (
     JSON,
     Column,
     DateTime,
+    Float,
     Integer,
     MetaData,
     String,
@@ -63,6 +64,18 @@ trace_events = Table(
     Column("source", String, nullable=False),
     Column("ts", DateTime(timezone=True), nullable=False),
     Column("payload", JSON, nullable=False),
+)
+
+llm_usage = Table(
+    "llm_usage",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("ts", DateTime(timezone=True), nullable=False),
+    Column("model", String, nullable=False),
+    Column("purpose", String, nullable=False),
+    Column("input_tokens", Integer, nullable=False),
+    Column("output_tokens", Integer, nullable=False),
+    Column("cost_usd", Float, nullable=False),
 )
 
 _engine: AsyncEngine | None = None
@@ -193,3 +206,27 @@ async def list_trace_events(run_id: str, attempt_no: int | None = None) -> list[
     async with get_engine().connect() as conn:
         rows = (await conn.execute(query)).all()
     return [TraceEvent.model_validate(r.payload) for r in rows]
+
+
+async def append_llm_usage(
+    *, model: str, purpose: str, input_tokens: int, output_tokens: int, cost_usd: float
+) -> None:
+    async with get_engine().begin() as conn:
+        await conn.execute(
+            llm_usage.insert().values(
+                ts=datetime.now(UTC),
+                model=model,
+                purpose=purpose,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                cost_usd=cost_usd,
+            )
+        )
+
+
+async def llm_spend_total() -> tuple[float, int]:
+    """(total USD, number of calls) across every Claude call ever recorded."""
+    query = select(func.coalesce(func.sum(llm_usage.c.cost_usd), 0.0), func.count(llm_usage.c.id))
+    async with get_engine().connect() as conn:
+        total, calls = (await conn.execute(query)).one()
+    return float(total or 0.0), int(calls or 0)

@@ -106,3 +106,20 @@ async def test_fetch_error_is_recorded(temp_db):
     ]
     assert attempt.tf_status == "ERROR" and fetch_used is blocked
     assert claude.calls == []
+
+
+async def test_expected_value_missing_from_the_page_skips_claude():
+    from app.models import ExpectedCheck
+
+    claude = FakeClaude({FetchExtraction: [FOUND]})
+    result, extraction, err = await extract_from_fetch(
+        claude,
+        goal="g",
+        output_schema=None,
+        expected=ExpectedCheck(type="regex", value=r"\b22\b"),
+        page=SAMPLE_PAGE,
+        max_chars=1000,
+    )
+    assert (result, err) == (None, None)
+    assert extraction.found is False and extraction.missing == [r"expected '\b22\b'"]
+    assert claude.calls == []  # free: no Claude call
