@@ -1,5 +1,6 @@
 import { useEffect, useReducer, useRef, useState } from "react";
 
+import { parseDemoUrl, playDemo } from "./demoSource";
 import { initialRunViewState, reduceRun, type RunViewState } from "./runState";
 import type { UiEvent } from "./types";
 
@@ -29,7 +30,8 @@ function withAfter(url: string, after: number): string {
 }
 
 /**
- * Subscribe to a run's UI event stream (SSE) and reduce it into view state.
+ * Subscribe to a run's UI event stream (SSE) and reduce it into view state. A `demo:<path>`
+ * URL plays a bundled JSONL recording in the browser instead (static demo deployment).
  *
  * EventSource reconnects by itself and sends `Last-Event-ID`. When the effect re-runs (for
  * example when Next.js hides and re-shows the route), the new connection resumes with
@@ -47,6 +49,33 @@ export function useRunStream(url: string | null): RunStream {
 
   useEffect(() => {
     if (!url || progress.current.done) return;
+
+    // `demo:<path>`: play a bundled recording in the browser (static demo, no API).
+    const demo = parseDemoUrl(url);
+    if (demo) {
+      const playback = playDemo(
+        demo.path,
+        (event) => {
+          dispatch(event);
+          if (event.type === "verdict") setConnected(false);
+        },
+        {
+          speed: demo.speed,
+          after: progress.current.lastSeq,
+          onStart: () => {
+            setConnected(true);
+            setError(null);
+          },
+          onDone: () => setConnected(false),
+          onError: (message) => {
+            setConnected(false);
+            setError(`Can't play this recorded run: ${message}`);
+          },
+        },
+      );
+      return () => playback.cancel();
+    }
+
     const es = new EventSource(withAfter(url, progress.current.lastSeq));
 
     es.onopen = () => {
