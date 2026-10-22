@@ -20,7 +20,7 @@ make baseline SITE=ajax-films          # optional: measured baseline (one stealt
 - `make baseline` prints `baseline_steps: N`. Paste it into the site's entry in `fixtures/sites.yaml`. Without it, the baseline is estimated as 3 × the most steps any agent attempt took.
 - Re-record a site whose recording doesn't show its class (at most twice), then use its backup.
 - Rough cost: about 25 agent steps per recording and 15 per baseline, at about $0.016 per step.
-- **Claude cost:** each live run makes at most one extraction call (Rung 1) and diagnosis calls only when the rules are unsure. Extraction is skipped for free when a `contains`/`regex` check's value isn't on the fetched page. Rough cost per Claude call with the default model `claude-opus-5-5`: $0.02–0.06. Recordings and rehearsals of recorded sites should use **replay**, which costs nothing. Watch `/health` → `claude_spent_usd`.
+- **Claude cost:** each live run makes at most one extraction call (Rung 1) and diagnosis calls only when the rules are unsure. Extraction is skipped for free when a `contains`/`regex` check's value isn't on the fetched page. Rough cost per Claude call with the default model `claude-haiku-4-5`: about $0.005 (Opus 5.5 would be $0.02–0.06). Recordings and rehearsals of recorded sites should use **replay**, which costs nothing. Watch `/health` → `claude_spent_usd`.
 
 ## 3. Replay (offline, no keys)
 

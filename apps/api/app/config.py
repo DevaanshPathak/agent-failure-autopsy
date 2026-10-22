@@ -20,7 +20,7 @@ class Settings(BaseSettings):
 
     tinyfish_api_key: str | None = None
     anthropic_api_key: str | None = None
-    anthropic_model: str = "claude-opus-5-5"
+    anthropic_model: str = "claude-haiku-4-5"
     # Hard cap on total Claude spend (USD), tracked from real token usage across restarts.
     anthropic_budget_usd: float = 4.0
     database_url: str = "sqlite+aiosqlite:///./autopsy.db"
