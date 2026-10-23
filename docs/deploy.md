@@ -27,7 +27,7 @@ The API can run as a Vercel Function (`apps/api/vercel_app.py`, project `agent-f
 - **`RUN_DEADLINE_S=270`:** a function request lasts at most 300 s (Hobby), so each run ends with an honest "Time budget spent" verdict before that. `STALE_RUN_S=330` closes runs whose instance was stopped anyway.
 - **Postgres:** a free Neon database from the Vercel Marketplace (`DATABASE_URL` / `DATABASE_URL_UNPOOLED`, used as given). It holds runs and the spend counters.
 
-Anyone with the URL spends your keys, so the shared caps are counted in the database for every visitor: one live run at a time, `LIVE_RUNS_PER_HOUR`, `LIVE_CREDIT_CAP` (estimated TinyFish credits across all runs; each run also stays within the default 4 attempts / 40 credits) and `ANTHROPIC_BUDGET_USD`. `/health` reports them and the home page shows what is left. Raise a cap with `vercel env add LIVE_CREDIT_CAP production --force` in the linked API directory, then redeploy.
+Anyone with the URL spends your keys, so the shared caps are counted in the database for every visitor: one live run at a time, `LIVE_RUNS_PER_HOUR`, `LIVE_CREDIT_CAP` (estimated TinyFish credits across all runs; each run also stays within the default 4 attempts / 40 credits) and `ANTHROPIC_BUDGET_USD`. `/health` reports them and the home page shows what is left. Raise a cap with `vercel env add LIVE_CREDIT_CAP production --force` in the linked API directory, then redeploy. To reset the shared credit budget without deleting runs (they stay on the results page), set `LIVE_BUDGET_SINCE` to the current UTC time, e.g. `2026-10-23T12:30:00Z`, the same way.
 
 ```sh
 # once: create + link the project, add Neon (accept its terms in the browser when asked), set env vars

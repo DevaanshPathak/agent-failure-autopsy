@@ -199,8 +199,11 @@ async def get_status(run_id: str) -> str | None:
         return (await conn.execute(select(runs.c.status).where(runs.c.id == run_id))).scalar()
 
 
-async def live_usage(active_since: datetime, hour_since: datetime) -> tuple[int, int, int]:
-    """(live runs still queued/running, live runs started in the last hour, credits ever used)."""
+async def live_usage(
+    active_since: datetime, hour_since: datetime, credits_since: datetime | None = None
+) -> tuple[int, int, int]:
+    """(live runs still queued/running, live runs started in the last hour, credits used by live
+    runs since `credits_since`, or ever)."""
     live = runs.c.mode == "live"
     active = select(func.count(runs.c.id)).where(
         live,
@@ -209,6 +212,8 @@ async def live_usage(active_since: datetime, hour_since: datetime) -> tuple[int,
     )
     recent = select(func.count(runs.c.id)).where(live, runs.c.created_at >= hour_since)
     credits = select(func.coalesce(func.sum(runs.c.credits_used), 0)).where(live)
+    if credits_since is not None:
+        credits = credits.where(runs.c.created_at >= credits_since)
     async with get_engine().connect() as conn:
         n_active = (await conn.execute(active)).scalar() or 0
         n_recent = (await conn.execute(recent)).scalar() or 0

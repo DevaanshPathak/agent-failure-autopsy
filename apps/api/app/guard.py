@@ -40,7 +40,9 @@ class LiveUsage:
 async def live_usage(settings: Settings) -> LiveUsage:
     now = utcnow()
     active, last_hour, used = await db.live_usage(
-        now - timedelta(seconds=settings.stale_run_s), now - timedelta(hours=1)
+        now - timedelta(seconds=settings.stale_run_s),
+        now - timedelta(hours=1),
+        settings.live_budget_since,
     )
     return LiveUsage(active, last_hour, used)
 

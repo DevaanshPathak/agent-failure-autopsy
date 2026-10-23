@@ -185,3 +185,13 @@ def test_engine_args_accept_provider_urls(url, expected, ssl):
     rendered, options = db.engine_args(url)
     assert rendered == expected
     assert (options["connect_args"].get("ssl") == "require") is ssl
+
+
+async def test_budget_reset_counts_only_runs_since(temp_db):
+    await _past_live_run("before", status=RunStatus.verified, credits=69, age_s=600)
+    since = utcnow() - timedelta(seconds=60)
+    app = _app(_verified_fake(), live_credit_cap=300, live_budget_since=since)
+    async with _client(app) as c:
+        health = (await c.get("/health")).json()
+    assert (health["live_credits_used"], health["live_credit_cap"]) == (0, 300)
+    assert await db.get_run("before") is not None  # earlier runs stay on the results page

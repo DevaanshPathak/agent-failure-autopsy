@@ -1,5 +1,6 @@
 """Runtime settings, read from the environment and the repo-root `.env`."""
 
+from datetime import datetime
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -64,6 +65,8 @@ class Settings(BaseSettings):
     # Spend caps shared by every visitor, counted in the database. None = no cap.
     live_credit_cap: int | None = None
     live_runs_per_hour: int | None = None
+    # Budget reset: LIVE_CREDIT_CAP counts only live runs created at or after this time (ISO 8601).
+    live_budget_since: datetime | None = None
 
     @property
     def cors_origin_list(self) -> list[str]:
