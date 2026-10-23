@@ -13,3 +13,6 @@ __pycache__/
 coverage/
 .DS_Store
 .vercel/
+
+# Rendered demo videos (large; re-made with scripts/demo-video)
+/demo-video/
