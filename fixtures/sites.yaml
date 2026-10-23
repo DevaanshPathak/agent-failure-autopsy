@@ -128,7 +128,7 @@ sites:
     summary: >-
       The sign-up form can't be submitted without solving a CAPTCHA that always fails. Expect a
       captcha diagnosis and an honest stop after one agent attempt, instead of more attempts.
-    cost_hint: about 3–8 credits
+    cost_hint: about 10 credits
     url: https://agent-failure-autopsy.vercel.app/lab/signup.html?v=1
     goal: >-
       Join the beta with the name Ada Park and the email ada@example.com, submit the form and
@@ -143,7 +143,8 @@ sites:
       The page never issues a code; the challenge always answers "Please try again". Live
       2026-10-23 with the goal's first sentence only: the agent spent 29 steps (184 s) picking
       tiles before reporting the CAPTCHA -> captcha (rules, 0.95) -> honest stop, 29 credits. The
-      goal now tells it not to try, as a careful user would.
+      goal now tells it not to try, as a careful user would: re-run 2026-10-23, 10 steps, 63 s,
+      captcha (rules, 0.95) -> honest stop, 10 credits.
 
   - id: lab-blocked
     kind: lab
