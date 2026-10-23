@@ -2,6 +2,7 @@ import DemoRunPicker from "@/components/DemoRunPicker";
 import HowItWorks from "@/components/HowItWorks";
 import LiveBudget from "@/components/LiveBudget";
 import RunForm from "@/components/RunForm";
+import ScenarioCards from "@/components/ScenarioCards";
 import { DEMO_MODE } from "@/lib/api";
 
 const INTRO =
@@ -38,12 +39,16 @@ export default function Home() {
       <div>
         <h1 className="text-2xl font-semibold">Run an autopsy</h1>
         <p className="text-slate-400">
-          Pick a demo site or paste any URL with a goal. We climb Fetch → Agent → Agent + stealth,
-          verify every answer ourselves, and diagnose every failure.
+          Start a prepared autopsy with one click, or paste any URL with a goal. We climb Fetch →
+          Agent → Agent + stealth, verify every answer ourselves, and diagnose every failure.
         </p>
       </div>
       <LiveBudget />
-      <RunForm />
+      <ScenarioCards />
+      <section className="space-y-3">
+        <h2 className="text-2xl font-semibold">Or build your own</h2>
+        <RunForm />
+      </section>
       <section className="space-y-3">
         <h2 className="text-2xl font-semibold">Or watch a recorded run</h2>
         <p className="text-slate-400">
