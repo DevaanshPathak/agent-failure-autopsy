@@ -469,16 +469,20 @@ export interface RungChangeEvent {
  */
 export interface SiteInfo {
   baseline_steps: number | null;
+  cost_hint: string | null;
   expected: ExpectedCheck | null;
   expected_class: FailureClass | null;
   goal: string;
   has_trace: boolean;
   id: string;
+  kind: "lab" | "real";
   notes: string | null;
   output_schema: {
     [k: string]: unknown;
   } | null;
   start_rung: Rung | null;
+  summary: string | null;
+  title: string | null;
   url: string;
 }
 /**

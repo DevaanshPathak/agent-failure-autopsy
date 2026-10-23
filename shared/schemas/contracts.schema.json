@@ -1314,6 +1314,17 @@
           ],
           "default": null
         },
+        "cost_hint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "expected": {
           "anyOf": [
             {
@@ -1344,6 +1355,14 @@
           "type": "boolean"
         },
         "id": {
+          "type": "string"
+        },
+        "kind": {
+          "default": "real",
+          "enum": [
+            "lab",
+            "real"
+          ],
           "type": "string"
         },
         "notes": {
@@ -1380,6 +1399,28 @@
           ],
           "default": null
         },
+        "summary": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "url": {
           "type": "string"
         }
@@ -1394,7 +1435,11 @@
         "output_schema",
         "baseline_steps",
         "start_rung",
-        "has_trace"
+        "has_trace",
+        "title",
+        "summary",
+        "kind",
+        "cost_hint"
       ],
       "title": "SiteInfo",
       "type": "object"

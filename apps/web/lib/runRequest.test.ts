@@ -102,6 +102,10 @@ describe("siteToForm", () => {
     baseline_steps: null,
     start_rung: "agent",
     has_trace: false,
+    title: null,
+    summary: null,
+    kind: "real",
+    cost_hint: null,
   };
 
   it("prefills every field from the site", () => {

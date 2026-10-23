@@ -1,9 +1,11 @@
 # Demo sites for Agent Failure Autopsy: one entry per failure class.
 # Entries whose id starts with TODO are skipped by the API.
 #
-# Status (2026-10-21): these sites passed a plain-HTTP pre-screen only (up, redirects, whether the
-# data is in the raw HTML). None has been run through TinyFish yet. Confirm each one with two live
-# runs (`make record SITE=<id>`), and replace it with its backup if it doesn't show its class.
+# Two kinds:
+#   lab   our own test pages (apps/web/public/lab, served at https://agent-failure-autopsy.vercel.app/lab),
+#         each built to trip one failure class. TinyFish can't reach localhost, so local runs use
+#         the public pages too. Bump ?v= in the URL after changing a page: Fetch may cache it.
+#   real  public websites (sandboxes where possible) that showed the class in a pre-screen.
 #
 # Fields
 #   id              short slug; also the trace file name: fixtures/traces/<id>.jsonl
@@ -20,9 +22,141 @@
 #   output_schema   TinyFish output_schema subset (only if the account has the entitlement)
 #   baseline_steps  steps of one stealth + proxy run, measured with `make baseline SITE=<id>`
 #   start_rung      fetch | agent | agent_stealth (default fetch)
+#   kind            lab | real (default real)
+#   title, summary, cost_hint
+#                   a one-click "prepared autopsy" card on the home page. Sites without a title
+#                   get no card (they stay in the form's demo-site list).
 
 sites:
+  # --- Lab: our own test pages, built to fail ------------------------------------------------
+
+  - id: lab-films
+    kind: lab
+    title: Chart that loads on click
+    summary: >-
+      The 2019 box-office chart loads only after clicking its tab, so a read-only Fetch can't see
+      it. Expect a needs-interaction diagnosis, then the agent clicks the tab and the answer is
+      verified.
+    cost_hint: about 3–6 credits
+    url: https://agent-failure-autopsy.vercel.app/lab/films.html?v=1
+    goal: Open the 2019 tab and list every film shown for 2019 with its box office.
+    expected:
+      type: contains
+      value: The Glass Orchard
+    expected_class: needs_interaction
+    notes: >-
+      Fictional data: "The Glass Orchard" is only in lab/data/films-2019.json, fetched after the
+      click, so the check can't pass from the first page load or from memory.
+
+  - id: lab-shop
+    kind: lab
+    title: Shop behind a cookie wall
+    summary: >-
+      The products appear only after a cookie choice, and a newsletter popup covers them a few
+      seconds later. Fetch sees only the consent text; the agent has to get past both. If it trips
+      on the popup, expect a popup diagnosis and a retry told to close it first.
+    cost_hint: about 4–10 credits
+    url: https://agent-failure-autopsy.vercel.app/lab/shop.html?v=1
+    goal: List the first 3 products with their name and price.
+    expected:
+      type: contains
+      value: Fernwood Pour-over Kettle
+    expected_class: popup_overlay
+    notes: >-
+      Products load from lab/data/shop-products.json only after "Accept all" or "Only necessary".
+      Rung 1 usually reads as needs_interaction (it sees only the consent text); popup_overlay
+      shows when the agent itself is stopped by the consent wall or the newsletter popup.
+
+  - id: lab-catalog
+    kind: lab
+    title: Catalog that shows half
+    summary: >-
+      Only 6 of 12 products show until "View all" is clicked. An agent that answers from what it
+      sees fails the 12-item check, usually gets a misread diagnosis, and the retry is told to
+      return all 12.
+    cost_hint: about 6–14 credits
+    url: https://agent-failure-autopsy.vercel.app/lab/catalog.html?v=1
+    goal: List the products in the Spring collection with their prices.
+    expected:
+      type: min_items
+      path: products
+      min: 12
+    output_schema:
+      type: object
+      properties:
+        products:
+          type: array
+          items:
+            type: object
+            properties:
+              name: {type: string}
+              price: {type: string}
+            required: [name, price]
+      required: [products]
+    expected_class: misread_page
+    start_rung: agent
+    notes: >-
+      Starts at the agent (rung 1 has no "View all" button to press). The misread retry adds
+      "Return at least 12 items in 'products'".
+
+  - id: lab-account
+    kind: lab
+    title: Account behind a login
+    summary: >-
+      The account page redirects to a sign-in form that never lets anyone in. Expect an auth-wall
+      diagnosis and an honest stop before any agent credits are spent.
+    cost_hint: 0 credits
+    url: https://agent-failure-autopsy.vercel.app/lab/account?v=1
+    goal: Return the account holder's name and membership tier shown on the account page.
+    expected:
+      type: fields_present
+      fields: [name, tier]
+    expected_class: auth_wall
+    notes: >-
+      /lab/account is a 307 redirect (next.config.ts) to /lab/login.html, so Fetch's final URL is a
+      login page.
+
+  - id: lab-signup
+    kind: lab
+    title: Form behind a CAPTCHA
+    summary: >-
+      The sign-up form can't be submitted without solving a CAPTCHA that always fails. Expect a
+      captcha diagnosis and an honest stop after one agent attempt.
+    cost_hint: about 3–10 credits
+    url: https://agent-failure-autopsy.vercel.app/lab/signup.html?v=1
+    goal: >-
+      Join the beta with the name Ada Park and the email ada@example.com, submit the form and
+      return the confirmation code shown afterwards.
+    expected:
+      type: contains
+      value: LRK-
+    expected_class: captcha
+    start_rung: agent
+    notes: The page never issues a code; the challenge always answers "Please try again".
+
+  - id: lab-blocked
+    kind: lab
+    title: Page that blocks bots
+    summary: >-
+      Every request gets HTTP 403 "Access denied". Expect a bot-block diagnosis, a jump straight to
+      the stealth browser with a proxy, and an honest stop when that is denied too.
+    cost_hint: about 2–8 credits
+    url: https://agent-failure-autopsy.vercel.app/lab/blocked?v=1
+    goal: Return the name and price of the featured product on this page.
+    expected:
+      type: contains
+      value: "72.00"
+    expected_class: bot_block
+    notes: A route handler (apps/web/app/lab/blocked/route.ts) answers every request with 403.
+
+  # --- Real websites ---------------------------------------------------------------------------
+
   - id: ajax-films
+    title: Oscar winners by year
+    summary: >-
+      scrapethissite.com (a scraping sandbox) loads each year's films by AJAX after a click. Fetch
+      misses them, the run is diagnosed needs-interaction, and the agent clicks 2015.
+    cost_hint: about 4 credits
     url: https://www.scrapethissite.com/pages/ajax-javascript/
     goal: Click the 2015 year link and list every Oscar-winning film shown for 2015 with its number of awards.
     expected:
@@ -31,8 +165,9 @@ sites:
     expected_class: needs_interaction
     notes: >-
       Pre-screen 2026-10-21: the raw HTML has 6 year links and 0 film rows (films load by AJAX after
-      a click), so Fetch should not see them. TinyFish untested. Confirm the 2015 list includes
-      "Spotlight" on the first live run. Backup: https://quotes.toscrape.com/search.aspx
+      a click). Live 2026-10-23 (hosted API): Fetch missed "Spotlight" -> needs_interaction (rules)
+      -> agent clicked 2015 in 4 steps -> verified, 4 credits, 27 s. Backup:
+      https://quotes.toscrape.com/search.aspx
 
   - id: TODO-popup-overlay
     url: TODO
@@ -42,9 +177,9 @@ sites:
       value: TODO
     expected_class: popup_overlay
     notes: >-
-      No candidate yet. Consent walls are injected by JavaScript, so plain HTTP can't find them; search
-      with TinyFish (EU publishers on a consent platform, newsletter-modal shops). If none fails 2 of
-      2, popup is shown from the sample run only (/dev).
+      No real-site candidate yet; lab-shop covers this class. Consent walls are injected by
+      JavaScript, so plain HTTP can't find them; search with TinyFish (EU publishers on a consent
+      platform, newsletter-modal shops).
 
   - id: indeed-jobs
     url: https://www.indeed.com/jobs?q=python
@@ -56,10 +191,17 @@ sites:
     notes: >-
       Pre-screen 2026-10-21: HTTP 403 "Security Check - Indeed.com" (Cloudflare challenge), so Fetch
       should report bot_blocked and the ladder should skip to stealth + proxy. TinyFish untested.
-      Commercial site whose terms forbid scraping: keep it to a handful of runs and store no data.
-      Backup: https://www.ticketmaster.com/ ("Just a Moment" interstitial).
+      Commercial site whose terms forbid scraping: keep it to a handful of runs and store no data,
+      so it has no one-click card (lab-blocked covers this class). Backup:
+      https://www.ticketmaster.com/ ("Just a Moment" interstitial).
 
   - id: books-22
+    title: Bookshop availability count
+    summary: >-
+      books.toscrape.com (a scraping sandbox) shows "In stock (22 available)". The goal asks
+      loosely for availability while the check needs the count, so a short answer is caught as a
+      misread and the retry asks for the exact text.
+    cost_hint: about 3–8 credits
     url: https://books.toscrape.com/catalogue/a-light-in-the-attic_1000/index.html
     goal: Return this book's availability.
     expected:
@@ -71,9 +213,15 @@ sites:
       Pre-screen 2026-10-21: the page shows "In stock (22 available)". The goal is deliberately
       loose while the check needs the count, so an agent answer of "In stock" is a misread that a
       tighter retry should fix. Starts at the agent (at rung 1 the extractor may already get it
-      right). TinyFish untested. Backup: https://www.scrapethissite.com/pages/forms/
+      right: live 2026-10-23 from rung 1 it was verified at once, 0 credits). Backup:
+      https://www.scrapethissite.com/pages/forms/
 
   - id: github-settings
+    title: GitHub settings page
+    summary: >-
+      github.com/settings redirects anyone not signed in to GitHub's login page. Expect an
+      auth-wall diagnosis and an honest stop at 0 credits.
+    cost_hint: 0 credits
     url: https://github.com/settings/profile
     goal: Return the profile display name shown on the settings page.
     expected:
@@ -86,6 +234,11 @@ sites:
       TinyFish untested. Backup: https://www.linkedin.com/feed/
 
   - id: recaptcha-demo
+    title: Google's reCAPTCHA demo
+    summary: >-
+      Google's own reCAPTCHA demo form. The agent can't solve the challenge, so expect a captcha
+      diagnosis and an honest stop after one agent attempt.
+    cost_hint: about 3–10 credits
     url: https://www.google.com/recaptcha/api2/demo
     goal: Fill in the form, submit it and return the confirmation message shown after submitting.
     expected:

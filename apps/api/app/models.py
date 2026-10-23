@@ -502,6 +502,11 @@ class SiteInfo(_Model):
     baseline_steps: int | None = None
     start_rung: Rung | None = None
     has_trace: bool = False
+    # A one-click "prepared autopsy" card on the home page (sites without a title get none).
+    title: str | None = None
+    summary: str | None = None
+    kind: Literal["lab", "real"] = "real"  # lab = our own test page under /lab, built to fail
+    cost_hint: str | None = None
 
 
 class RunCreated(_Model):
