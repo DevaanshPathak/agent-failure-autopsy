@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Larkspur Home · Spring collection</title>
+<style>
+  :root { color-scheme: light; --ink: #1e2a24; --muted: #5f6e66; --line: #dbe4de; --accent: #2f7a54; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: #f5f8f6; }
+  main { max-width: 900px; margin: 0 auto; padding: 32px 16px 48px; }
+  h1 { margin: 0 0 4px; font-size: 28px; }
+  .lede { margin: 0 0 20px; color: var(--muted); }
+  .grid { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+  .grid li { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  .grid .name { font-weight: 600; }
+  .grid .price { color: var(--accent); font-variant-numeric: tabular-nums; }
+  .more { margin-top: 20px; display: flex; align-items: center; gap: 14px; color: var(--muted); font-size: 14px; }
+  .more button { font: inherit; padding: 9px 16px; border-radius: 8px; border: 1px solid var(--accent); background: #fff; color: var(--accent); cursor: pointer; }
+  footer { margin-top: 40px; font-size: 13px; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Spring collection</h1>
+  <p class="lede">Larkspur Home: lighting, textiles and tableware for the new season.</p>
+  <ul class="grid" id="grid">
+    <li><div class="name">Larkspur Desk Lamp</div><div class="price">£48.50</div></li>
+    <li><div class="name">Meadow Linen Throw</div><div class="price">£64.00</div></li>
+    <li><div class="name">Stoneware Pasta Bowl</div><div class="price">£14.00</div></li>
+    <li><div class="name">Willow Bread Basket</div><div class="price">£22.00</div></li>
+    <li><div class="name">Seagrass Placemats, set of 4</div><div class="price">£26.00</div></li>
+    <li><div class="name">Amber Glass Tumblers, set of 2</div><div class="price">£18.00</div></li>
+  </ul>
+  <div class="more">
+    <span id="count">Showing 6 of 12</span>
+    <button id="view-all">View all</button>
+  </div>
+  <footer>Test page for Agent Failure Autopsy. The shop and its products are fictional.</footer>
+</main>
+<script>
+  const MORE = [
+    ["Oak Serving Board", "£36.00"],
+    ["Clay Bud Vase", "£12.50"],
+    ["Wool Seat Pads, set of 2", "£29.00"],
+    ["Brass Candle Snuffer", "£16.00"],
+    ["Hearth Cast-iron Skillet", "£54.00"],
+    ["Juniper Field Lantern", "£39.00"],
+  ];
+  document.getElementById("view-all").addEventListener("click", (e) => {
+    document.getElementById("grid").insertAdjacentHTML(
+      "beforeend",
+      MORE.map(([n, p]) => `<li><div class="name">${n}</div><div class="price">${p}</div></li>`).join("")
+    );
+    document.getElementById("count").textContent = "Showing 12 of 12";
+    e.currentTarget.remove();
+  });
+</script>
+</body>
+</html>

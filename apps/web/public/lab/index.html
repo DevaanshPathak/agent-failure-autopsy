@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Agent Failure Autopsy · test pages</title>
+<style>
+  :root { color-scheme: light; --ink: #1f2430; --muted: #5d6576; --line: #dde1e8; --accent: #2457c5; }
+  body { margin: 0; font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: #f6f7fb; }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 16px 48px; }
+  h1 { margin: 0 0 6px; font-size: 26px; }
+  p.lede { margin: 0 0 22px; color: var(--muted); }
+  ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+  li { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  a { color: var(--accent); font-weight: 600; }
+  span { display: block; color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Test pages built to trip web agents</h1>
+  <p class="lede">Each page hides its data in one specific way, so a live run on it shows one failure
+    class of <a href="/">Agent Failure Autopsy</a>. All data on them is fictional.</p>
+  <ul>
+    <li><a href="films.html">Northlight Box Office</a><span>Needs interaction: the 2019 chart loads only after clicking its tab.</span></li>
+    <li><a href="shop.html">Fernwood Kitchen</a><span>Popup: a cookie consent wall hides the products, then a newsletter popup covers them.</span></li>
+    <li><a href="catalog.html">Larkspur Spring collection</a><span>Misread: only 6 of 12 products show until "View all" is clicked.</span></li>
+    <li><a href="account">Northlight account</a><span>Login wall: redirects to a sign-in page that never lets anyone in.</span></li>
+    <li><a href="signup.html">Larkspur beta sign-up</a><span>Captcha: the form can't be submitted without solving a CAPTCHA that always fails.</span></li>
+    <li><a href="blocked">Harbor Lamp product page</a><span>Bot block: answers every request with HTTP 403.</span></li>
+  </ul>
+</main>
+</body>
+</html>

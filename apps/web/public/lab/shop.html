@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Fernwood Kitchen · coffee gear</title>
+<style>
+  :root { color-scheme: light; --ink: #2a2420; --muted: #6f655d; --line: #e6ded6; --accent: #8a4b22; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: #fbf8f4; }
+  main { max-width: 900px; margin: 0 auto; padding: 32px 16px 48px; }
+  h1 { margin: 0 0 4px; font-size: 28px; }
+  .lede { margin: 0 0 24px; color: var(--muted); }
+  .grid { list-style: none; padding: 0; margin: 0; display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+  .grid li { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  .grid .name { font-weight: 600; }
+  .grid .price { color: var(--accent); font-variant-numeric: tabular-nums; }
+  .layer { position: fixed; inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(30, 24, 20, .72); z-index: 10; }
+  .layer[hidden] { display: none; }
+  .box { max-width: 460px; width: 100%; background: #fff; border-radius: 12px; padding: 24px; box-shadow: 0 20px 60px rgba(0,0,0,.35); position: relative; }
+  .box h2 { margin: 0 0 8px; font-size: 20px; }
+  .box p { margin: 0 0 16px; color: var(--muted); }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .btn { font: inherit; padding: 10px 18px; border-radius: 8px; border: 1px solid var(--line); background: #fff; cursor: pointer; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .close { position: absolute; top: 10px; right: 12px; border: 0; background: none; font-size: 22px; cursor: pointer; color: var(--muted); }
+  input[type=email] { font: inherit; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; flex: 1; min-width: 180px; }
+  footer { margin-top: 40px; font-size: 13px; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Fernwood Kitchen</h1>
+  <p class="lede">Small-batch coffee gear, shipped from our workshop.</p>
+  <p id="waiting">The product list appears once you make a privacy choice.</p>
+  <ul class="grid" id="grid"></ul>
+  <footer>Test page for Agent Failure Autopsy. The shop and its products are fictional.</footer>
+</main>
+
+<div class="layer" id="consent" role="dialog" aria-modal="true" aria-labelledby="consent-title">
+  <div class="box">
+    <h2 id="consent-title">We use cookies</h2>
+    <p>Fernwood Kitchen uses cookies to run the shop and remember your basket. Choose an option to continue to the products.</p>
+    <div class="row">
+      <button class="btn primary" id="accept">Accept all</button>
+      <button class="btn" id="necessary">Only necessary</button>
+    </div>
+  </div>
+</div>
+
+<div class="layer" id="promo" role="dialog" aria-modal="true" aria-labelledby="promo-title" hidden>
+  <div class="box">
+    <button class="close" id="promo-close" aria-label="Close">×</button>
+    <h2 id="promo-title">Get 10% off your first order</h2>
+    <p>Join the Fernwood newsletter for brewing guides and early access to new gear.</p>
+    <div class="row">
+      <input type="email" placeholder="you@example.com" aria-label="Email address">
+      <button class="btn primary">Subscribe</button>
+    </div>
+    <p style="margin:12px 0 0"><button class="btn" id="promo-no">No thanks</button></p>
+  </div>
+</div>
+
+<script>
+  const consent = document.getElementById("consent");
+  const promo = document.getElementById("promo");
+
+  // The products load only after a privacy choice, so nothing on the first page load names them.
+  async function openShop() {
+    consent.hidden = true;
+    const products = await fetch("data/shop-products.json").then((r) => r.json());
+    document.getElementById("waiting").remove();
+    document.getElementById("grid").innerHTML = products.map(
+      (p) => `<li><div class="name">${p.name}</div><div class="price">${p.price}</div></li>`
+    ).join("");
+    setTimeout(() => { promo.hidden = false; }, 4000);
+  }
+  document.getElementById("accept").addEventListener("click", openShop);
+  document.getElementById("necessary").addEventListener("click", openShop);
+  for (const id of ["promo-close", "promo-no"]) {
+    document.getElementById(id).addEventListener("click", () => { promo.hidden = true; });
+  }
+</script>
+</body>
+</html>

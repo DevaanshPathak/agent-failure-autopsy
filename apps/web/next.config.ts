@@ -25,6 +25,17 @@ const nextConfig: NextConfig = {
   },
   cacheComponents: true,
   partialPrefetching: true,
+  // Test page for the auth_wall scenario (public/lab/): the account page always sends visitors
+  // to a sign-in form, the way a real login wall does.
+  async redirects() {
+    return [
+      {
+        source: "/lab/account",
+        destination: "/lab/login.html?next=/lab/account",
+        permanent: false,
+      },
+    ];
+  },
   turbopack: {
     rules: {
       "*.css": {

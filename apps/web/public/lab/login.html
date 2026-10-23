@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Northlight Members · Sign in</title>
+<style>
+  :root { color-scheme: light; --ink: #1f2430; --muted: #5d6576; --line: #dde1e8; --accent: #2457c5; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 16px; font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: #eef1f7; }
+  form { width: 100%; max-width: 380px; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 28px; }
+  h1 { margin: 0 0 6px; font-size: 22px; }
+  p { margin: 0 0 18px; color: var(--muted); }
+  label { display: block; font-size: 14px; margin: 12px 0 4px; }
+  input { width: 100%; font: inherit; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; }
+  button { margin-top: 18px; width: 100%; font: inherit; padding: 11px; border: 0; border-radius: 8px; background: var(--accent); color: #fff; cursor: pointer; }
+  #error { color: #b42318; font-size: 14px; margin: 12px 0 0; }
+  .small { margin-top: 16px; font-size: 13px; }
+  footer { margin-top: 18px; font-size: 12px; color: var(--muted); text-align: center; }
+</style>
+</head>
+<body>
+<form id="signin" novalidate>
+  <h1>Northlight Members</h1>
+  <p>Please sign in to continue to your account.</p>
+  <label for="email">Email</label>
+  <input id="email" type="email" autocomplete="username">
+  <label for="password">Password</label>
+  <input id="password" type="password" autocomplete="current-password">
+  <button type="submit">Sign in</button>
+  <p id="error" aria-live="polite" hidden>That email and password don't match a Northlight account.</p>
+  <p class="small"><a href="#">Forgot your password?</a></p>
+  <footer>Test page for Agent Failure Autopsy. No real accounts exist here.</footer>
+</form>
+<script>
+  document.getElementById("signin").addEventListener("submit", (e) => {
+    e.preventDefault();
+    document.getElementById("error").hidden = false;
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Northlight Box Office · yearly charts</title>
+<style>
+  :root { color-scheme: light; --ink: #1f2430; --muted: #5d6576; --line: #dde1e8; --accent: #2457c5; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: #f6f7fb; }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 16px 48px; }
+  h1 { margin: 0 0 4px; font-size: 28px; }
+  .lede { margin: 0 0 24px; color: var(--muted); }
+  .years { display: flex; gap: 8px; margin-bottom: 16px; }
+  .years button { font: inherit; padding: 8px 18px; border: 1px solid var(--line); border-radius: 999px; background: #fff; cursor: pointer; }
+  .years button[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--line); }
+  th { font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: #fafbfd; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  #status { color: var(--muted); font-size: 14px; }
+  footer { margin-top: 40px; font-size: 13px; color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Northlight Box Office</h1>
+  <p class="lede">The year's top films by worldwide box office. Choose a year to load its chart.</p>
+
+  <div class="years" role="tablist" aria-label="Year">
+    <button role="tab" data-year="2021" aria-selected="true">2021</button>
+    <button role="tab" data-year="2020" aria-selected="false">2020</button>
+    <button role="tab" data-year="2019" aria-selected="false">2019</button>
+  </div>
+
+  <table>
+    <thead><tr><th>#</th><th>Film</th><th class="num">Box office</th></tr></thead>
+    <tbody id="rows">
+      <tr><td>1</td><td>Winter at Cobalt Bay</td><td class="num">$187.6M</td></tr>
+      <tr><td>2</td><td>The Lantern Accord</td><td class="num">$142.3M</td></tr>
+      <tr><td>3</td><td>Small Hours in Varna</td><td class="num">$96.8M</td></tr>
+      <tr><td>4</td><td>Copper Season</td><td class="num">$71.5M</td></tr>
+      <tr><td>5</td><td>A Map of Quiet Rivers</td><td class="num">$44.9M</td></tr>
+    </tbody>
+  </table>
+  <p id="status" aria-live="polite">Showing 2021.</p>
+
+  <footer>Test page for Agent Failure Autopsy. All titles and figures are fictional.</footer>
+</main>
+<script>
+  const rows = document.getElementById("rows");
+  const status = document.getElementById("status");
+  const tabs = document.querySelectorAll("[data-year]");
+
+  async function show(year) {
+    tabs.forEach((t) => t.setAttribute("aria-selected", String(t.dataset.year === year)));
+    status.textContent = "Loading " + year + "…";
+    rows.innerHTML = "";
+    await new Promise((r) => setTimeout(r, 600));
+    const films = await fetch("data/films-" + year + ".json").then((r) => r.json());
+    rows.innerHTML = films
+      .map((f, i) => `<tr><td>${i + 1}</td><td>${f.title}</td><td class="num">${f.box_office}</td></tr>`)
+      .join("");
+    status.textContent = "Showing " + year + ".";
+  }
+
+  tabs.forEach((t) => t.addEventListener("click", () => show(t.dataset.year)));
+</script>
+</body>
+</html>

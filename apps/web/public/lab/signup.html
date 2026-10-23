@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Larkspur Home · join the beta</title>
+<style>
+  :root { color-scheme: light; --ink: #1e2a24; --muted: #5f6e66; --line: #dbe4de; --accent: #2f7a54; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: #f5f8f6; }
+  main { max-width: 460px; margin: 0 auto; padding: 40px 16px; }
+  form { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 24px; }
+  h1 { margin: 0 0 6px; font-size: 24px; }
+  .lede { margin: 0 0 18px; color: var(--muted); }
+  label { display: block; font-size: 14px; margin: 12px 0 4px; }
+  input[type=text], input[type=email] { width: 100%; font: inherit; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; }
+  .check { margin-top: 18px; border: 1px solid #c9cfd6; border-radius: 4px; background: #f9f9f9; padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .check label { margin: 0; display: flex; align-items: center; gap: 10px; font-size: 15px; cursor: pointer; }
+  .check input { width: 22px; height: 22px; }
+  .brand { font-size: 10px; color: #8a929b; text-align: center; line-height: 1.2; }
+  .challenge { margin-top: 10px; border: 1px solid #c9cfd6; border-radius: 4px; padding: 12px; background: #fff; }
+  .challenge[hidden] { display: none; }
+  .challenge .ask { background: #2f6fde; color: #fff; padding: 10px 12px; border-radius: 3px; font-size: 14px; }
+  .tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin: 8px 0; }
+  .tiles button { aspect-ratio: 1; border: 0; cursor: pointer; font-size: 26px; background: #e3e8ee; }
+  .tiles button.on { outline: 3px solid #2f6fde; }
+  .challenge .foot { display: flex; justify-content: space-between; align-items: center; }
+  .challenge .msg { color: #b42318; font-size: 13px; }
+  .verify, .submit { font: inherit; padding: 9px 16px; border: 0; border-radius: 6px; cursor: pointer; }
+  .verify { background: #2f6fde; color: #fff; }
+  .submit { margin-top: 18px; width: 100%; background: var(--accent); color: #fff; }
+  .submit:disabled { opacity: .5; cursor: not-allowed; }
+  .note { font-size: 13px; color: var(--muted); margin: 8px 0 0; }
+  footer { margin-top: 18px; font-size: 12px; color: var(--muted); text-align: center; }
+</style>
+</head>
+<body>
+<main>
+  <form id="beta" novalidate>
+    <h1>Join the Larkspur beta</h1>
+    <p class="lede">Try our new home planner before anyone else. We'll show your confirmation code right after you submit.</p>
+    <label for="name">Full name</label>
+    <input id="name" type="text" autocomplete="name">
+    <label for="email">Email</label>
+    <input id="email" type="email" autocomplete="email">
+
+    <div class="check">
+      <label><input type="checkbox" id="robot"> I'm not a robot</label>
+      <div class="brand">CAPTCHA<br>Privacy · Terms</div>
+    </div>
+    <div class="challenge" id="challenge" hidden>
+      <div class="ask">Select all squares with <b>street lamps</b></div>
+      <div class="tiles" id="tiles"></div>
+      <div class="foot">
+        <span class="msg" id="msg" aria-live="polite"></span>
+        <button type="button" class="verify" id="verify">Verify</button>
+      </div>
+    </div>
+
+    <button type="submit" class="submit" id="submit" disabled>Join the beta</button>
+    <p class="note">Complete the CAPTCHA to submit the form.</p>
+    <footer>Test page for Agent Failure Autopsy. Nothing is stored and no code is ever issued.</footer>
+  </form>
+</main>
+<script>
+  const tiles = document.getElementById("tiles");
+  const icons = ["🏮", "🌳", "🚲", "🏮", "🚗", "🏠", "🌳", "🏮", "🚦"];
+  tiles.innerHTML = icons.map((i) => `<button type="button">${i}</button>`).join("");
+  tiles.addEventListener("click", (e) => {
+    if (e.target instanceof HTMLButtonElement) e.target.classList.toggle("on");
+  });
+  document.getElementById("robot").addEventListener("change", (e) => {
+    e.target.checked = false;
+    document.getElementById("challenge").hidden = false;
+  });
+  // The challenge never passes: this page exists to show how a run stops at a CAPTCHA.
+  document.getElementById("verify").addEventListener("click", () => {
+    document.getElementById("msg").textContent = "Please try again.";
+    tiles.querySelectorAll(".on").forEach((t) => t.classList.remove("on"));
+  });
+  document.getElementById("beta").addEventListener("submit", (e) => e.preventDefault());
+</script>
+</body>
+</html>
