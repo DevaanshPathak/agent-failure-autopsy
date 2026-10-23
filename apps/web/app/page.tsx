@@ -1,5 +1,6 @@
 import DemoRunPicker from "@/components/DemoRunPicker";
 import HowItWorks from "@/components/HowItWorks";
+import LiveBudget from "@/components/LiveBudget";
 import RunForm from "@/components/RunForm";
 import { DEMO_MODE } from "@/lib/api";
 
@@ -41,7 +42,17 @@ export default function Home() {
           verify every answer ourselves, and diagnose every failure.
         </p>
       </div>
+      <LiveBudget />
       <RunForm />
+      <section className="space-y-3">
+        <h2 className="text-2xl font-semibold">Or watch a recorded run</h2>
+        <p className="text-slate-400">
+          These play in your browser from files bundled with the site, so they cost nothing: no
+          TinyFish credits, no Claude calls. Each shows the ladder, every step, the verifier, the
+          diagnosis with its red failing step, and the verdict.
+        </p>
+        <DemoRunPicker />
+      </section>
       <HowItWorks />
     </main>
   );

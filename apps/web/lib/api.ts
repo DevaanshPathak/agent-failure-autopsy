@@ -1,4 +1,4 @@
-import type { Run, RunCreated, RunRequest, SiteInfo, Stats } from "./types";
+import type { Health, Run, RunCreated, RunRequest, SiteInfo, Stats } from "./types";
 
 export const API_BASE = (process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8000").replace(
   /\/+$/,
@@ -10,6 +10,12 @@ export const API_BASE = (process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:8
  * Decided at build time in next.config.ts (NEXT_PUBLIC_DEMO_MODE).
  */
 export const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
+
+/**
+ * A public deployment of the live app (visitors spend a shared budget), as opposed to local dev.
+ * Decided at build time in next.config.ts (NEXT_PUBLIC_PUBLIC_DEMO).
+ */
+export const PUBLIC_DEMO = process.env.NEXT_PUBLIC_PUBLIC_DEMO === "true";
 
 /** A non-2xx API response. `detail` is FastAPI's `detail` field (a string or a list of issues). */
 export class ApiError extends Error {
@@ -43,6 +49,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 const enc = encodeURIComponent;
+
+export const getHealth = () => request<Health>("/health");
 
 export const getSites = () => request<SiteInfo[]>("/sites");
 

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 
-import { DEMO_MODE } from "@/lib/api";
+import { DEMO_MODE, PUBLIC_DEMO } from "@/lib/api";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -34,6 +34,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         {DEMO_MODE && (
           <div className="border-b border-amber-500/30 bg-amber-950/50 px-6 py-1.5 text-center text-sm text-amber-100">
             Demo deployment · replays bundled runs · live runs need the API
+          </div>
+        )}
+        {!DEMO_MODE && PUBLIC_DEMO && (
+          <div className="border-b border-amber-500/30 bg-amber-950/50 px-6 py-1.5 text-center text-sm text-amber-100">
+            Live demo · real TinyFish runs · shared budget, one run at a time
           </div>
         )}
         <header className="border-b border-slate-800 bg-slate-950/80">
