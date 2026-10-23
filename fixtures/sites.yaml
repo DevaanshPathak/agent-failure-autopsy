@@ -37,7 +37,7 @@ sites:
       The 2019 box-office chart loads only after clicking its tab, so a read-only Fetch can't see
       it. Expect a needs-interaction diagnosis, then the agent clicks the tab and the answer is
       verified.
-    cost_hint: about 3–6 credits
+    cost_hint: about 5 credits
     url: https://agent-failure-autopsy.vercel.app/lab/films.html?v=1
     goal: Open the 2019 tab and list every film shown for 2019 with its box office.
     expected:
@@ -46,16 +46,18 @@ sites:
     expected_class: needs_interaction
     notes: >-
       Fictional data: "The Glass Orchard" is only in lab/data/films-2019.json, fetched after the
-      click, so the check can't pass from the first page load or from memory.
+      click, so the check can't pass from the first page load or from memory. Live 2026-10-23:
+      Fetch missed it -> needs_interaction (rules) -> agent clicked 2019 -> verified, 5 credits, 24 s.
 
   - id: lab-shop
     kind: lab
     title: Shop behind a cookie wall
     summary: >-
       The products appear only after a cookie choice, and a newsletter popup covers them a few
-      seconds later. Fetch sees only the consent text; the agent has to get past both. If it trips
-      on the popup, expect a popup diagnosis and a retry told to close it first.
-    cost_hint: about 4–10 credits
+      seconds later. Fetch sees only the cookie notice, so expect a needs-interaction diagnosis
+      first. TinyFish's agent usually clears the cookie wall itself; if a popup stops it, the
+      diagnosis is popup overlay and the retry is told to close it first.
+    cost_hint: about 3–6 credits
     url: https://agent-failure-autopsy.vercel.app/lab/shop.html?v=1
     goal: List the first 3 products with their name and price.
     expected:
@@ -65,16 +67,18 @@ sites:
     notes: >-
       Products load from lab/data/shop-products.json only after "Accept all" or "Only necessary".
       Rung 1 usually reads as needs_interaction (it sees only the consent text); popup_overlay
-      shows when the agent itself is stopped by the consent wall or the newsletter popup.
+      shows when the agent itself is stopped by the consent wall or the newsletter popup. Live
+      2026-10-23: needs_interaction (rules) -> agent dismissed the cookie popup and listed the
+      products -> verified, 3 credits, 13 s (the popup class did not show).
 
   - id: lab-catalog
     kind: lab
     title: Catalog that shows half
     summary: >-
-      Only 6 of 12 products show until "View all" is clicked. An agent that answers from what it
-      sees fails the 12-item check, usually gets a misread diagnosis, and the retry is told to
-      return all 12.
-    cost_hint: about 6–14 credits
+      Only 6 of 12 products show until "View all" is clicked, and the check needs all 12. An
+      incomplete first answer fails the check and is diagnosed (misread, or needs interaction),
+      and the retry is told to return all 12.
+    cost_hint: about 6–10 credits
     url: https://agent-failure-autopsy.vercel.app/lab/catalog.html?v=1
     goal: List the products in the Spring collection with their prices.
     expected:
@@ -97,7 +101,9 @@ sites:
     start_rung: agent
     notes: >-
       Starts at the agent (rung 1 has no "View all" button to press). The misread retry adds
-      "Return at least 12 items in 'products'".
+      "Return at least 12 items in 'products'". Live 2026-10-23: attempt 1 came back empty
+      (expected + not_all_null failed) -> Claude diagnosed needs_interaction (0.85) -> attempt 2
+      returned all 12 -> verified, 8 credits, 56 s.
 
   - id: lab-account
     kind: lab
@@ -114,25 +120,30 @@ sites:
     expected_class: auth_wall
     notes: >-
       /lab/account is a 307 redirect (next.config.ts) to /lab/login.html, so Fetch's final URL is a
-      login page.
+      login page. Live 2026-10-23: auth_wall (rules, 0.9) on rung 1 -> honest stop, 0 credits, 4 s.
 
   - id: lab-signup
     kind: lab
     title: Form behind a CAPTCHA
     summary: >-
       The sign-up form can't be submitted without solving a CAPTCHA that always fails. Expect a
-      captcha diagnosis and an honest stop after one agent attempt.
-    cost_hint: about 3–10 credits
+      captcha diagnosis and an honest stop after one agent attempt, instead of more attempts.
+    cost_hint: about 3–8 credits
     url: https://agent-failure-autopsy.vercel.app/lab/signup.html?v=1
     goal: >-
       Join the beta with the name Ada Park and the email ada@example.com, submit the form and
-      return the confirmation code shown afterwards.
+      return the confirmation code shown afterwards. If a CAPTCHA appears, don't try to solve it:
+      report that it is there.
     expected:
       type: contains
       value: LRK-
     expected_class: captcha
     start_rung: agent
-    notes: The page never issues a code; the challenge always answers "Please try again".
+    notes: >-
+      The page never issues a code; the challenge always answers "Please try again". Live
+      2026-10-23 with the goal's first sentence only: the agent spent 29 steps (184 s) picking
+      tiles before reporting the CAPTCHA -> captcha (rules, 0.95) -> honest stop, 29 credits. The
+      goal now tells it not to try, as a careful user would.
 
   - id: lab-blocked
     kind: lab
@@ -140,14 +151,17 @@ sites:
     summary: >-
       Every request gets HTTP 403 "Access denied". Expect a bot-block diagnosis, a jump straight to
       the stealth browser with a proxy, and an honest stop when that is denied too.
-    cost_hint: about 2–8 credits
+    cost_hint: about 10 credits
     url: https://agent-failure-autopsy.vercel.app/lab/blocked?v=1
     goal: Return the name and price of the featured product on this page.
     expected:
       type: contains
       value: "72.00"
     expected_class: bot_block
-    notes: A route handler (apps/web/app/lab/blocked/route.ts) answers every request with 403.
+    notes: >-
+      A route handler (apps/web/app/lab/blocked/route.ts) answers every request with 403. Live
+      2026-10-23: Fetch target_http_error 403 -> bot_block (rules, 0.9) -> rung 3 stealth + proxy
+      (10 steps, still denied) -> bot_block -> honest stop, 10 credits, 39 s.
 
   # --- Real websites ---------------------------------------------------------------------------
 
@@ -240,7 +254,9 @@ sites:
       diagnosis and an honest stop after one agent attempt.
     cost_hint: about 3–10 credits
     url: https://www.google.com/recaptcha/api2/demo
-    goal: Fill in the form, submit it and return the confirmation message shown after submitting.
+    goal: >-
+      Fill in the form, submit it and return the confirmation message shown after submitting. If a
+      CAPTCHA appears, don't try to solve it: report that it is there.
     expected:
       type: contains
       value: Verification Success
